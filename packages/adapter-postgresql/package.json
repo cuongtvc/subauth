@@ -1,0 +1,32 @@
+{
+  "name": "@authpaddle/adapter-postgresql",
+  "version": "0.1.0",
+  "description": "PostgreSQL adapter for AuthPaddle",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@authpaddle/core": "workspace:*",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.10.9",
+    "vitest": "^1.2.0"
+  },
+  "peerDependencies": {
+    "pg": "^8.0.0"
+  },
+  "keywords": [
+    "authpaddle",
+    "postgresql",
+    "adapter",
+    "authentication",
+    "subscription"
+  ],
+  "license": "MIT"
+}
