@@ -4,5 +4,16 @@ export type { AuthServiceConfig, TokenValidationResult } from './auth-service';
 export { SubscriptionService } from './subscription-service';
 export type { SubscriptionServiceConfig, TrialInfo } from './subscription-service';
 
+// Framework-agnostic handlers
+export {
+  createAuthHandlers,
+  createSubscriptionHandlers,
+  type AuthHandlersConfig,
+  type SubscriptionHandlersConfig,
+  type AuthRequest,
+  type AuthResponse,
+  type Handler,
+} from './handlers';
+
 // Re-export core types for convenience
 export * from '@authpaddle/core';
