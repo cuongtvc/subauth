@@ -1,5 +1,5 @@
--- AuthPaddle PostgreSQL Schema
--- This schema provides the database structure for the @authpaddle/adapter-postgresql package.
+-- SubAuth PostgreSQL Schema
+-- This schema provides the database structure for the @subauth/adapter-postgresql package.
 
 -- ============================================
 -- USERS TABLE

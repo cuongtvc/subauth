@@ -1,4 +1,4 @@
-// Core types and interfaces for authpaddle
+// Core types and interfaces for subauth
 // TDD: These will be implemented as tests require them
 
 // ============================================
@@ -249,7 +249,7 @@ export interface SubscriptionConfig {
   plans: Plan[];
 }
 
-export interface AuthPaddleConfig {
+export interface SubAuthConfig {
   auth: AuthConfig;
   subscription?: SubscriptionConfig;
   database: DatabaseAdapter;

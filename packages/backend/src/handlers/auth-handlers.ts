@@ -1,6 +1,6 @@
 import type { AuthRequest, AuthResponse } from './types';
 import { AuthService, type AuthServiceConfig } from '../auth-service';
-import { AuthError } from '@authpaddle/core';
+import { AuthError } from '@subauth/core';
 
 export interface AuthHandlersConfig extends AuthServiceConfig {}
 

@@ -9,7 +9,7 @@ import { Pool } from 'pg';
  * Set environment variables before running:
  * - TEST_DB_HOST (default: localhost)
  * - TEST_DB_PORT (default: 5432)
- * - TEST_DB_NAME (default: authpaddle_test)
+ * - TEST_DB_NAME (default: subauth_test)
  * - TEST_DB_USER (default: postgres)
  * - TEST_DB_PASSWORD (default: postgres)
  * 
@@ -21,7 +21,7 @@ const isIntegrationTest = process.env.TEST_INTEGRATION === 'true';
 const config = {
   host: process.env.TEST_DB_HOST || 'localhost',
   port: parseInt(process.env.TEST_DB_PORT || '5432'),
-  database: process.env.TEST_DB_NAME || 'authpaddle_test',
+  database: process.env.TEST_DB_NAME || 'subauth_test',
   user: process.env.TEST_DB_USER || 'postgres',
   password: process.env.TEST_DB_PASSWORD || 'postgres',
 };

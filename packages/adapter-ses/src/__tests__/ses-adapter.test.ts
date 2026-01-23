@@ -9,7 +9,7 @@ import {
   SubscriptionConfirmationEmailContext,
   SubscriptionCanceledEmailContext,
 } from '../index';
-import type { Subscription } from '@authpaddle/core';
+import type { Subscription } from '@subauth/core';
 
 // Mock @aws-sdk/client-ses module
 vi.mock('@aws-sdk/client-ses', () => {

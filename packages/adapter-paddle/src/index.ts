@@ -6,7 +6,7 @@ import type {
   WebhookEvent,
   WebhookEventType,
   SubscriptionStatus,
-} from '@authpaddle/core';
+} from '@subauth/core';
 
 // ============================================
 // CONFIGURATION TYPES
@@ -489,4 +489,4 @@ export class PaddlePaymentAdapter implements PaymentAdapter {
 // EXPORTS
 // ============================================
 
-export type { PaymentAdapter, CheckoutSession, WebhookEvent } from '@authpaddle/core';
+export type { PaymentAdapter, CheckoutSession, WebhookEvent } from '@subauth/core';

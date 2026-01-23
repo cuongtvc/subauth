@@ -4,7 +4,7 @@ import type {
   EmailAdapter,
   User,
   AuthConfig,
-} from '@authpaddle/core';
+} from '@subauth/core';
 
 // Import will fail until we implement - that's TDD!
 import { createAuthHandlers } from '../handlers/auth-handlers';

@@ -5,7 +5,7 @@ import {
   PaddlePaymentError,
   PaddlePaymentErrorCodes,
 } from '../index';
-import type { WebhookEvent } from '@authpaddle/core';
+import type { WebhookEvent } from '@subauth/core';
 
 // Mock @paddle/paddle-node-sdk module
 vi.mock('@paddle/paddle-node-sdk', () => {

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PostgreSQLAdapter } from '../index';
 import type { Pool, PoolClient, QueryResult } from 'pg';
-import type { User, Subscription, Transaction } from '@authpaddle/core';
+import type { User, Subscription, Transaction } from '@subauth/core';
 
 // Mock pg module
 vi.mock('pg', () => {

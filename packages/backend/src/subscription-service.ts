@@ -10,7 +10,7 @@ import {
   type WebhookEvent,
   type BillingCycle,
   type SubscriptionStatus,
-} from '@authpaddle/core';
+} from '@subauth/core';
 
 export interface SubscriptionServiceConfig {
   database: DatabaseAdapter;

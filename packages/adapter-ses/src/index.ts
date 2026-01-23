@@ -1,5 +1,5 @@
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
-import type { EmailAdapter, Subscription } from '@authpaddle/core';
+import type { EmailAdapter, Subscription } from '@subauth/core';
 
 // ============================================
 // ERROR TYPES

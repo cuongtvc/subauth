@@ -1,20 +1,20 @@
-# @authpaddle/adapter-postgresql
+# @subauth/adapter-postgresql
 
-PostgreSQL adapter for AuthPaddle - a pure TypeScript implementation of the `DatabaseAdapter` interface.
+PostgreSQL adapter for SubAuth - a pure TypeScript implementation of the `DatabaseAdapter` interface.
 
 ## Installation
 
 ```bash
-npm install @authpaddle/adapter-postgresql pg
+npm install @subauth/adapter-postgresql pg
 # or
-pnpm add @authpaddle/adapter-postgresql pg
+pnpm add @subauth/adapter-postgresql pg
 ```
 
 ## Quick Start
 
 ```typescript
-import { PostgreSQLAdapter } from '@authpaddle/adapter-postgresql';
-import { AuthService } from '@authpaddle/backend';
+import { PostgreSQLAdapter } from '@subauth/adapter-postgresql';
+import { AuthService } from '@subauth/backend';
 
 // Create the adapter
 const dbAdapter = new PostgreSQLAdapter({
@@ -28,7 +28,7 @@ const dbAdapter = new PostgreSQLAdapter({
   connectionTimeoutMillis: 2000,
 });
 
-// Use with AuthPaddle services
+// Use with SubAuth services
 const authService = new AuthService({
   database: dbAdapter,
   // ... other config
@@ -40,7 +40,7 @@ const authService = new AuthService({
 Run the provided SQL schema to create the required tables:
 
 ```bash
-psql -U postgres -d myapp -f node_modules/@authpaddle/adapter-postgresql/sql/schema.sql
+psql -U postgres -d myapp -f node_modules/@subauth/adapter-postgresql/sql/schema.sql
 ```
 
 Or copy and run the SQL from `sql/schema.sql`.
@@ -209,12 +209,12 @@ Integration tests require a running PostgreSQL instance:
 export TEST_INTEGRATION=true
 export TEST_DB_HOST=localhost
 export TEST_DB_PORT=5432
-export TEST_DB_NAME=authpaddle_test
+export TEST_DB_NAME=subauth_test
 export TEST_DB_USER=postgres
 export TEST_DB_PASSWORD=postgres
 
 # Create test database
-createdb authpaddle_test
+createdb subauth_test
 
 # Run tests
 pnpm test

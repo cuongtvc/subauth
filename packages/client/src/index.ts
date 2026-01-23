@@ -12,4 +12,4 @@ export type {
 } from './types';
 
 // Re-export core types for convenience
-export * from '@authpaddle/core';
+export * from '@subauth/core';

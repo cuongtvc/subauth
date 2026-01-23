@@ -1,7 +1,7 @@
 {
-  "name": "@authpaddle/adapter-paddle",
+  "name": "@subauth/adapter-paddle",
   "version": "0.1.0",
-  "description": "Paddle payment adapter for AuthPaddle",
+  "description": "Paddle payment adapter for SubAuth",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -12,7 +12,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@authpaddle/core": "workspace:*",
+    "@subauth/core": "workspace:*",
     "@paddle/paddle-node-sdk": "^3.3.0"
   },
   "devDependencies": {
@@ -23,7 +23,7 @@
     "@paddle/paddle-node-sdk": "^3.0.0"
   },
   "keywords": [
-    "authpaddle",
+    "subauth",
     "paddle",
     "payment",
     "subscription",

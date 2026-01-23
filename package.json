@@ -1,8 +1,8 @@
 {
-  "name": "authpaddle",
+  "name": "subauth",
   "version": "0.0.1",
   "private": true,
-  "description": "TypeScript library for auth and payment provider integration",
+  "description": "TypeScript library for auth and subscription management",
   "scripts": {
     "test": "vitest",
     "test:run": "vitest run",

@@ -4,7 +4,7 @@ import type {
   SubscriptionStateListener,
   TrialInfo,
 } from './types';
-import type { Subscription, Plan, CheckoutSession } from '@authpaddle/core';
+import type { Subscription, Plan, CheckoutSession } from '@subauth/core';
 
 export class SubscriptionClient {
   private config: SubscriptionClientConfig;

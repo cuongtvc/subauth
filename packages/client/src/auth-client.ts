@@ -1,5 +1,5 @@
 import type { AuthClientConfig, AuthState, AuthStateListener } from './types';
-import type { User, AuthTokens, RegisterInput, LoginInput } from '@authpaddle/core';
+import type { User, AuthTokens, RegisterInput, LoginInput } from '@subauth/core';
 
 export class AuthClient {
   private config: AuthClientConfig;

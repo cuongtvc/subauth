@@ -1,5 +1,5 @@
 {
-  "name": "@authpaddle/client",
+  "name": "@subauth/client",
   "version": "0.0.1",
   "description": "Framework-agnostic browser client for auth and subscriptions",
   "main": "src/index.ts",
@@ -17,7 +17,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@authpaddle/core": "workspace:*"
+    "@subauth/core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.3.0"

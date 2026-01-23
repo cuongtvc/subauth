@@ -6,7 +6,7 @@ import type {
   Transaction,
   SubscriptionStatus,
   BillingCycle,
-} from '@authpaddle/core';
+} from '@subauth/core';
 
 // Database row types (snake_case from PostgreSQL)
 interface UserRow {
@@ -51,7 +51,7 @@ export interface PostgreSQLAdapterConfig extends PoolConfig {
 
 /**
  * PostgreSQL implementation of the DatabaseAdapter interface.
- * Provides all database operations needed by authpaddle.
+ * Provides all database operations needed by subauth.
  */
 export class PostgreSQLAdapter implements DatabaseAdapter {
   private pool: Pool;

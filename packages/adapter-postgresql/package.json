@@ -1,7 +1,7 @@
 {
-  "name": "@authpaddle/adapter-postgresql",
+  "name": "@subauth/adapter-postgresql",
   "version": "0.1.0",
-  "description": "PostgreSQL adapter for AuthPaddle",
+  "description": "PostgreSQL adapter for SubAuth",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -11,7 +11,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@authpaddle/core": "workspace:*",
+    "@subauth/core": "workspace:*",
     "pg": "^8.11.3"
   },
   "devDependencies": {
@@ -22,7 +22,7 @@
     "pg": "^8.0.0"
   },
   "keywords": [
-    "authpaddle",
+    "subauth",
     "postgresql",
     "adapter",
     "authentication",

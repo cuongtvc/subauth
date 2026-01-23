@@ -1,7 +1,7 @@
 {
-  "name": "@authpaddle/adapter-ses",
+  "name": "@subauth/adapter-ses",
   "version": "0.1.0",
-  "description": "AWS SES email adapter for AuthPaddle",
+  "description": "AWS SES email adapter for SubAuth",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -11,7 +11,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@authpaddle/core": "workspace:*",
+    "@subauth/core": "workspace:*",
     "@aws-sdk/client-ses": "^3.908.0"
   },
   "devDependencies": {
@@ -21,7 +21,7 @@
     "@aws-sdk/client-ses": "^3.0.0"
   },
   "keywords": [
-    "authpaddle",
+    "subauth",
     "aws",
     "ses",
     "email",

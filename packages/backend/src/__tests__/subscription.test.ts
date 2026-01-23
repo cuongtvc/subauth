@@ -8,7 +8,7 @@ import type {
   CheckoutSession,
   WebhookEvent,
   SubscriptionConfig,
-} from '@authpaddle/core';
+} from '@subauth/core';
 
 // Import will fail until we implement - that's TDD!
 import { SubscriptionService } from '../subscription-service';

@@ -14,7 +14,7 @@ import {
   type VerifyEmailInput,
   type PasswordResetRequestInput,
   type PasswordResetInput,
-} from '@authpaddle/core';
+} from '@subauth/core';
 
 export interface AuthServiceConfig {
   auth: AuthConfig;

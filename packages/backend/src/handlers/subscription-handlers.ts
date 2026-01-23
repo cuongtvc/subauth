@@ -1,7 +1,7 @@
 import type { AuthRequest, AuthResponse } from './types';
 import { SubscriptionService, type SubscriptionServiceConfig } from '../subscription-service';
 import { AuthService } from '../auth-service';
-import { SubscriptionError, type AuthConfig, type DatabaseAdapter, type EmailAdapter } from '@authpaddle/core';
+import { SubscriptionError, type AuthConfig, type DatabaseAdapter, type EmailAdapter } from '@subauth/core';
 
 export interface SubscriptionHandlersConfig extends SubscriptionServiceConfig {
   authConfig: AuthConfig;
