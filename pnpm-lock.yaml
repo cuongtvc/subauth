@@ -21,6 +21,22 @@ importers:
         specifier: ^1.0.0
         version: 1.6.1(@types/node@20.19.30)(happy-dom@12.10.3)
 
+  packages/adapter-paddle:
+    dependencies:
+      '@authpaddle/core':
+        specifier: workspace:*
+        version: link:../core
+      '@paddle/paddle-node-sdk':
+        specifier: ^3.3.0
+        version: 3.5.0
+    devDependencies:
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.2.0
+        version: 1.6.1(@types/node@20.19.30)(happy-dom@12.10.3)
+
   packages/adapter-postgresql:
     dependencies:
       '@authpaddle/core':
@@ -355,6 +371,10 @@ packages:
 
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
+
+  '@paddle/paddle-node-sdk@3.5.0':
+    resolution: {integrity: sha512-/Ac1N5i01/YJhiqOKlfW+Rz+nfhkaCyqpkG2P5ByeUNERNFYbAOkNc/TaXO/Nhgf9r3PoatnXH6YSpEs4KdtjA==}
+    engines: {node: '>=20'}
 
   '@rollup/rollup-android-arm-eabi@4.56.0':
     resolution: {integrity: sha512-LNKIPA5k8PF1+jAFomGe3qN3bbIgJe/IlpDBwuVjrDKrJhVWywgnJvflMt/zkbVNLFtF1+94SljYQS6e99klnw==}
@@ -1592,6 +1612,8 @@ snapshots:
       '@sinclair/typebox': 0.27.8
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
+
+  '@paddle/paddle-node-sdk@3.5.0': {}
 
   '@rollup/rollup-android-arm-eabi@4.56.0':
     optional: true
