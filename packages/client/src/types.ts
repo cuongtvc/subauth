@@ -1,4 +1,4 @@
-import type { User, Subscription, Plan } from '@subauth/core';
+import type { User, Subscription } from '@subauth/core';
 
 export interface AuthClientConfig {
   baseUrl: string;

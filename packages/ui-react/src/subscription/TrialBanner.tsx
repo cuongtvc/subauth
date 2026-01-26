@@ -1,4 +1,3 @@
-import React from 'react';
 import { cn } from '@subauth/ui-core';
 import { Alert } from '../primitives/Alert';
 import { Button } from '../primitives/Button';

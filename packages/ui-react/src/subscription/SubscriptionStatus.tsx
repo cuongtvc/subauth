@@ -1,4 +1,3 @@
-import React from 'react';
 import { cn } from '@subauth/ui-core';
 import { Card, CardContent } from '../primitives/Card';
 import { Button } from '../primitives/Button';

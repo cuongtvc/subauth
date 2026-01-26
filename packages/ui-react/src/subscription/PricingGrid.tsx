@@ -1,4 +1,3 @@
-import React from 'react';
 import { cn } from '@subauth/ui-core';
 import { PricingCard, type PricingCardProps } from './PricingCard';
 
