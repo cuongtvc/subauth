@@ -254,7 +254,7 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + expiresIn);
 
     const accessToken = jwt.sign({ userId }, this.config.jwtSecret, {
-      expiresIn: this.config.jwtExpiresIn,
+      expiresIn: this.config.jwtExpiresIn as jwt.SignOptions['expiresIn'],
     });
 
     return { accessToken, expiresAt };
