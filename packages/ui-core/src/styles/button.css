@@ -1,0 +1,140 @@
+.subauth-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--subauth-spacing-sm);
+  font-family: var(--subauth-font-family);
+  font-weight: var(--subauth-font-weight-medium);
+  border-radius: var(--subauth-radius);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color var(--subauth-transition-fast),
+    border-color var(--subauth-transition-fast),
+    color var(--subauth-transition-fast),
+    box-shadow var(--subauth-transition-fast);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.subauth-button:focus-visible {
+  outline: 2px solid var(--subauth-border-focus);
+  outline-offset: 2px;
+}
+
+/* Variants */
+.subauth-button--primary {
+  background-color: var(--subauth-primary);
+  color: var(--subauth-primary-foreground);
+}
+
+.subauth-button--primary:hover:not(:disabled) {
+  background-color: var(--subauth-primary-hover);
+}
+
+.subauth-button--primary:active:not(:disabled) {
+  background-color: var(--subauth-primary-active);
+}
+
+.subauth-button--secondary {
+  background-color: var(--subauth-secondary);
+  color: var(--subauth-secondary-foreground);
+}
+
+.subauth-button--secondary:hover:not(:disabled) {
+  background-color: var(--subauth-secondary-hover);
+}
+
+.subauth-button--secondary:active:not(:disabled) {
+  background-color: var(--subauth-secondary-active);
+}
+
+.subauth-button--outline {
+  background-color: transparent;
+  border-color: var(--subauth-border);
+  color: var(--subauth-foreground);
+}
+
+.subauth-button--outline:hover:not(:disabled) {
+  background-color: var(--subauth-muted);
+}
+
+.subauth-button--ghost {
+  background-color: transparent;
+  color: var(--subauth-foreground);
+}
+
+.subauth-button--ghost:hover:not(:disabled) {
+  background-color: var(--subauth-muted);
+}
+
+.subauth-button--danger {
+  background-color: var(--subauth-error);
+  color: var(--subauth-error-foreground);
+}
+
+.subauth-button--danger:hover:not(:disabled) {
+  background-color: var(--subauth-error-hover);
+}
+
+/* Sizes */
+.subauth-button--sm {
+  height: 2rem;
+  padding: 0 var(--subauth-spacing-sm);
+  font-size: var(--subauth-font-size-sm);
+}
+
+.subauth-button--md {
+  height: 2.5rem;
+  padding: 0 var(--subauth-spacing-md);
+  font-size: var(--subauth-font-size-md);
+}
+
+.subauth-button--lg {
+  height: 3rem;
+  padding: 0 var(--subauth-spacing-lg);
+  font-size: var(--subauth-font-size-lg);
+}
+
+/* States */
+.subauth-button--disabled,
+.subauth-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.subauth-button--loading {
+  position: relative;
+  color: transparent;
+}
+
+.subauth-button--loading::after {
+  content: '';
+  position: absolute;
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--subauth-radius-full);
+  animation: subauth-button-spin 0.6s linear infinite;
+}
+
+.subauth-button--loading.subauth-button--primary::after,
+.subauth-button--loading.subauth-button--secondary::after,
+.subauth-button--loading.subauth-button--danger::after {
+  border-color: var(--subauth-primary-foreground);
+  border-right-color: transparent;
+}
+
+.subauth-button--full-width {
+  width: 100%;
+}
+
+@keyframes subauth-button-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

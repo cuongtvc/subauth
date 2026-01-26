@@ -1,0 +1,106 @@
+import React, { useState } from 'react';
+import { validateEmail, validateRequired, cn } from '@subauth/ui-core';
+import { FormField } from '../primitives/FormField';
+import { Button } from '../primitives/Button';
+import { Alert } from '../primitives/Alert';
+
+export interface LoginFormProps {
+  onSubmit: (data: { email: string; password: string }) => void | Promise<void>;
+  loading?: boolean;
+  error?: string;
+  onForgotPassword?: () => void;
+  onSignUp?: () => void;
+  className?: string;
+}
+
+export function LoginForm({
+  onSubmit,
+  loading = false,
+  error,
+  onForgotPassword,
+  onSignUp,
+  className,
+}: LoginFormProps) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const newErrors: { email?: string; password?: string } = {};
+
+    const emailResult = validateEmail(email);
+    if (!emailResult.valid) {
+      newErrors.email = emailResult.error;
+    }
+
+    const passwordResult = validateRequired(password, 'Password');
+    if (!passwordResult.valid) {
+      newErrors.password = passwordResult.error;
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setErrors({});
+    await onSubmit({ email, password });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className={cn('subauth-login-form', className)} noValidate>
+      {error && (
+        <Alert variant="error" className="subauth-form-field">
+          {error}
+        </Alert>
+      )}
+
+      <FormField
+        label="Email"
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        error={errors.email}
+        required
+        autoComplete="email"
+      />
+
+      <FormField
+        label="Password"
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        error={errors.password}
+        required
+        autoComplete="current-password"
+      />
+
+      {onForgotPassword && (
+        <div className="subauth-text-sm subauth-form-field">
+          <button
+            type="button"
+            onClick={onForgotPassword}
+            className="subauth-link"
+          >
+            Forgot password?
+          </button>
+        </div>
+      )}
+
+      <Button type="submit" loading={loading} fullWidth>
+        Sign in
+      </Button>
+
+      {onSignUp && (
+        <p className="subauth-text-center subauth-text-sm subauth-text-muted" style={{ marginTop: 'var(--subauth-spacing-md)' }}>
+          Don't have an account?{' '}
+          <button type="button" onClick={onSignUp} className="subauth-link">
+            Sign up
+          </button>
+        </p>
+      )}
+    </form>
+  );
+}

@@ -1,0 +1,72 @@
+.subauth-card {
+  background-color: var(--subauth-background);
+  border-radius: var(--subauth-radius-lg);
+  border: 1px solid var(--subauth-border);
+}
+
+/* Padding variants */
+.subauth-card--padding-none {
+  padding: 0;
+}
+
+.subauth-card--padding-sm {
+  padding: var(--subauth-spacing-sm);
+}
+
+.subauth-card--padding-md {
+  padding: var(--subauth-spacing-md);
+}
+
+.subauth-card--padding-lg {
+  padding: var(--subauth-spacing-lg);
+}
+
+/* Shadow variants */
+.subauth-card--shadow-none {
+  box-shadow: none;
+}
+
+.subauth-card--shadow-sm {
+  box-shadow: var(--subauth-shadow-sm);
+}
+
+.subauth-card--shadow-md {
+  box-shadow: var(--subauth-shadow-md);
+}
+
+.subauth-card--shadow-lg {
+  box-shadow: var(--subauth-shadow-lg);
+}
+
+/* Card sections */
+.subauth-card-header {
+  padding: var(--subauth-spacing-md);
+  border-bottom: 1px solid var(--subauth-border);
+}
+
+.subauth-card-title {
+  font-family: var(--subauth-font-family);
+  font-size: var(--subauth-font-size-lg);
+  font-weight: var(--subauth-font-weight-semibold);
+  color: var(--subauth-foreground);
+  margin: 0;
+}
+
+.subauth-card-description {
+  font-family: var(--subauth-font-family);
+  font-size: var(--subauth-font-size-sm);
+  color: var(--subauth-muted-foreground);
+  margin: var(--subauth-spacing-xs) 0 0;
+}
+
+.subauth-card-content {
+  padding: var(--subauth-spacing-md);
+}
+
+.subauth-card-footer {
+  padding: var(--subauth-spacing-md);
+  border-top: 1px solid var(--subauth-border);
+  display: flex;
+  align-items: center;
+  gap: var(--subauth-spacing-sm);
+}

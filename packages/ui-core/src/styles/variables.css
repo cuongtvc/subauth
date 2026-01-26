@@ -1,0 +1,78 @@
+:root {
+  /* Primary colors */
+  --subauth-primary: #0284c7;
+  --subauth-primary-hover: #0369a1;
+  --subauth-primary-active: #075985;
+  --subauth-primary-foreground: #ffffff;
+
+  /* Secondary colors */
+  --subauth-secondary: #64748b;
+  --subauth-secondary-hover: #475569;
+  --subauth-secondary-active: #334155;
+  --subauth-secondary-foreground: #ffffff;
+
+  /* Semantic colors */
+  --subauth-error: #dc2626;
+  --subauth-error-hover: #b91c1c;
+  --subauth-error-light: #fef2f2;
+  --subauth-error-foreground: #ffffff;
+
+  --subauth-success: #16a34a;
+  --subauth-success-hover: #15803d;
+  --subauth-success-light: #f0fdf4;
+  --subauth-success-foreground: #ffffff;
+
+  --subauth-warning: #d97706;
+  --subauth-warning-hover: #b45309;
+  --subauth-warning-light: #fffbeb;
+  --subauth-warning-foreground: #ffffff;
+
+  --subauth-info: #0284c7;
+  --subauth-info-hover: #0369a1;
+  --subauth-info-light: #f0f9ff;
+  --subauth-info-foreground: #ffffff;
+
+  /* Neutral colors */
+  --subauth-background: #ffffff;
+  --subauth-foreground: #0f172a;
+  --subauth-muted: #f1f5f9;
+  --subauth-muted-foreground: #64748b;
+  --subauth-border: #e2e8f0;
+  --subauth-border-focus: #0284c7;
+
+  /* Spacing */
+  --subauth-spacing-xs: 0.25rem;
+  --subauth-spacing-sm: 0.5rem;
+  --subauth-spacing-md: 1rem;
+  --subauth-spacing-lg: 1.5rem;
+  --subauth-spacing-xl: 2rem;
+
+  /* Border radius */
+  --subauth-radius-sm: 0.25rem;
+  --subauth-radius: 0.5rem;
+  --subauth-radius-lg: 0.75rem;
+  --subauth-radius-full: 9999px;
+
+  /* Shadows */
+  --subauth-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --subauth-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --subauth-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --subauth-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+  /* Typography */
+  --subauth-font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --subauth-font-size-xs: 0.75rem;
+  --subauth-font-size-sm: 0.875rem;
+  --subauth-font-size-md: 1rem;
+  --subauth-font-size-lg: 1.125rem;
+  --subauth-font-size-xl: 1.25rem;
+  --subauth-font-weight-normal: 400;
+  --subauth-font-weight-medium: 500;
+  --subauth-font-weight-semibold: 600;
+  --subauth-font-weight-bold: 700;
+
+  /* Transitions */
+  --subauth-transition-fast: 150ms ease;
+  --subauth-transition: 200ms ease;
+  --subauth-transition-slow: 300ms ease;
+}

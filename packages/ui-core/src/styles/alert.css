@@ -1,0 +1,80 @@
+.subauth-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--subauth-spacing-sm);
+  padding: var(--subauth-spacing-md);
+  font-family: var(--subauth-font-family);
+  font-size: var(--subauth-font-size-sm);
+  border-radius: var(--subauth-radius);
+  border: 1px solid transparent;
+}
+
+/* Variants */
+.subauth-alert--info {
+  background-color: var(--subauth-info-light);
+  border-color: var(--subauth-info);
+  color: var(--subauth-info);
+}
+
+.subauth-alert--success {
+  background-color: var(--subauth-success-light);
+  border-color: var(--subauth-success);
+  color: var(--subauth-success);
+}
+
+.subauth-alert--warning {
+  background-color: var(--subauth-warning-light);
+  border-color: var(--subauth-warning);
+  color: var(--subauth-warning);
+}
+
+.subauth-alert--error {
+  background-color: var(--subauth-error-light);
+  border-color: var(--subauth-error);
+  color: var(--subauth-error);
+}
+
+/* Dismissible */
+.subauth-alert--dismissible {
+  position: relative;
+  padding-right: calc(var(--subauth-spacing-md) + 2rem);
+}
+
+/* Alert title */
+.subauth-alert-title {
+  font-weight: var(--subauth-font-weight-semibold);
+  margin-bottom: var(--subauth-spacing-xs);
+}
+
+/* Alert description */
+.subauth-alert-description {
+  color: var(--subauth-foreground);
+}
+
+/* Dismiss button */
+.subauth-alert-dismiss {
+  position: absolute;
+  top: var(--subauth-spacing-sm);
+  right: var(--subauth-spacing-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--subauth-radius-sm);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity var(--subauth-transition-fast);
+}
+
+.subauth-alert-dismiss:hover {
+  opacity: 1;
+}
+
+.subauth-alert-dismiss:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}

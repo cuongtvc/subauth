@@ -1,0 +1,160 @@
+/* Pricing Card */
+.subauth-pricing-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+
+.subauth-pricing-card--highlighted {
+  border-color: var(--subauth-primary);
+  transform: scale(1.02);
+}
+
+.subauth-pricing-badge {
+  position: absolute;
+  top: -0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--subauth-spacing-xs) var(--subauth-spacing-sm);
+  background-color: var(--subauth-primary);
+  color: var(--subauth-primary-foreground);
+  font-size: var(--subauth-font-size-xs);
+  font-weight: var(--subauth-font-weight-semibold);
+  border-radius: var(--subauth-radius-full);
+  white-space: nowrap;
+}
+
+.subauth-pricing-header {
+  margin-bottom: var(--subauth-spacing-md);
+}
+
+.subauth-pricing-name {
+  font-family: var(--subauth-font-family);
+  font-size: var(--subauth-font-size-xl);
+  font-weight: var(--subauth-font-weight-bold);
+  color: var(--subauth-foreground);
+  margin: 0;
+}
+
+.subauth-pricing-description {
+  font-family: var(--subauth-font-family);
+  font-size: var(--subauth-font-size-sm);
+  color: var(--subauth-muted-foreground);
+  margin: var(--subauth-spacing-xs) 0 0;
+}
+
+.subauth-pricing-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--subauth-spacing-xs);
+  margin-bottom: var(--subauth-spacing-lg);
+}
+
+.subauth-pricing-currency {
+  font-size: var(--subauth-font-size-lg);
+  font-weight: var(--subauth-font-weight-medium);
+  color: var(--subauth-foreground);
+}
+
+.subauth-pricing-amount {
+  font-size: 2.5rem;
+  font-weight: var(--subauth-font-weight-bold);
+  color: var(--subauth-foreground);
+  line-height: 1;
+}
+
+.subauth-pricing-interval {
+  font-size: var(--subauth-font-size-sm);
+  color: var(--subauth-muted-foreground);
+}
+
+/* Feature List */
+.subauth-feature-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--subauth-spacing-lg);
+  text-align: left;
+}
+
+.subauth-feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--subauth-spacing-sm);
+  padding: var(--subauth-spacing-xs) 0;
+  font-family: var(--subauth-font-family);
+  font-size: var(--subauth-font-size-sm);
+  color: var(--subauth-foreground);
+}
+
+.subauth-feature-check {
+  flex-shrink: 0;
+  color: var(--subauth-success);
+  margin-top: 0.125rem;
+}
+
+/* Pricing Grid */
+.subauth-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--subauth-spacing-lg);
+  align-items: start;
+}
+
+/* Subscription Status */
+.subauth-subscription-status {
+  width: 100%;
+}
+
+.subauth-subscription-plan-name {
+  font-family: var(--subauth-font-family);
+  font-size: var(--subauth-font-size-lg);
+  font-weight: var(--subauth-font-weight-semibold);
+  color: var(--subauth-foreground);
+}
+
+.subauth-subscription-alert {
+  margin-top: var(--subauth-spacing-md);
+}
+
+/* Status Badge */
+.subauth-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--subauth-spacing-xs) var(--subauth-spacing-sm);
+  font-family: var(--subauth-font-family);
+  font-size: var(--subauth-font-size-xs);
+  font-weight: var(--subauth-font-weight-medium);
+  border-radius: var(--subauth-radius-full);
+}
+
+.subauth-status-badge--success {
+  background-color: var(--subauth-success-light);
+  color: var(--subauth-success);
+}
+
+.subauth-status-badge--info {
+  background-color: var(--subauth-info-light);
+  color: var(--subauth-info);
+}
+
+.subauth-status-badge--warning {
+  background-color: var(--subauth-warning-light);
+  color: var(--subauth-warning);
+}
+
+.subauth-status-badge--error {
+  background-color: var(--subauth-error-light);
+  color: var(--subauth-error);
+}
+
+.subauth-status-badge--muted {
+  background-color: var(--subauth-muted);
+  color: var(--subauth-muted-foreground);
+}
+
+/* Trial Banner */
+.subauth-trial-banner {
+  width: 100%;
+}

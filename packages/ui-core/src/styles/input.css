@@ -1,0 +1,73 @@
+.subauth-input {
+  display: block;
+  width: 100%;
+  height: 2.5rem;
+  padding: 0 var(--subauth-spacing-sm);
+  font-family: var(--subauth-font-family);
+  font-size: var(--subauth-font-size-md);
+  color: var(--subauth-foreground);
+  background-color: var(--subauth-background);
+  border: 1px solid var(--subauth-border);
+  border-radius: var(--subauth-radius);
+  transition: border-color var(--subauth-transition-fast),
+    box-shadow var(--subauth-transition-fast);
+}
+
+.subauth-input::placeholder {
+  color: var(--subauth-muted-foreground);
+}
+
+.subauth-input:focus {
+  outline: none;
+  border-color: var(--subauth-border-focus);
+  box-shadow: 0 0 0 3px rgb(2 132 199 / 0.15);
+}
+
+.subauth-input--error {
+  border-color: var(--subauth-error);
+}
+
+.subauth-input--error:focus {
+  border-color: var(--subauth-error);
+  box-shadow: 0 0 0 3px rgb(220 38 38 / 0.15);
+}
+
+.subauth-input--disabled,
+.subauth-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--subauth-muted);
+}
+
+/* Label */
+.subauth-label {
+  display: block;
+  margin-bottom: var(--subauth-spacing-xs);
+  font-family: var(--subauth-font-family);
+  font-size: var(--subauth-font-size-sm);
+  font-weight: var(--subauth-font-weight-medium);
+  color: var(--subauth-foreground);
+}
+
+.subauth-label--required::after {
+  content: ' *';
+  color: var(--subauth-error);
+}
+
+/* Error message */
+.subauth-error {
+  display: block;
+  margin-top: var(--subauth-spacing-xs);
+  font-family: var(--subauth-font-family);
+  font-size: var(--subauth-font-size-sm);
+  color: var(--subauth-error);
+}
+
+/* Help text */
+.subauth-help-text {
+  display: block;
+  margin-top: var(--subauth-spacing-xs);
+  font-family: var(--subauth-font-family);
+  font-size: var(--subauth-font-size-sm);
+  color: var(--subauth-muted-foreground);
+}

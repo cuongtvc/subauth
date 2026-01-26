@@ -1,0 +1,108 @@
+/* Subauth UI Core Styles */
+@import './variables.css';
+@import './button.css';
+@import './input.css';
+@import './alert.css';
+@import './spinner.css';
+@import './card.css';
+@import './subscription.css';
+
+/* Base styles */
+.subauth-hidden {
+  display: none !important;
+}
+
+/* Form field wrapper */
+.subauth-form-field {
+  margin-bottom: var(--subauth-spacing-md);
+}
+
+.subauth-form-field:last-child {
+  margin-bottom: 0;
+}
+
+/* Layout utilities */
+.subauth-flex {
+  display: flex;
+}
+
+.subauth-flex-col {
+  flex-direction: column;
+}
+
+.subauth-items-center {
+  align-items: center;
+}
+
+.subauth-justify-center {
+  justify-content: center;
+}
+
+.subauth-justify-between {
+  justify-content: space-between;
+}
+
+.subauth-gap-sm {
+  gap: var(--subauth-spacing-sm);
+}
+
+.subauth-gap-md {
+  gap: var(--subauth-spacing-md);
+}
+
+.subauth-gap-lg {
+  gap: var(--subauth-spacing-lg);
+}
+
+/* Text utilities */
+.subauth-text-center {
+  text-align: center;
+}
+
+.subauth-text-sm {
+  font-size: var(--subauth-font-size-sm);
+}
+
+.subauth-text-muted {
+  color: var(--subauth-muted-foreground);
+}
+
+/* Link styles */
+.subauth-link {
+  color: var(--subauth-primary);
+  text-decoration: none;
+  font-family: var(--subauth-font-family);
+  transition: color var(--subauth-transition-fast);
+}
+
+.subauth-link:hover {
+  color: var(--subauth-primary-hover);
+  text-decoration: underline;
+}
+
+.subauth-link:focus-visible {
+  outline: 2px solid var(--subauth-border-focus);
+  outline-offset: 2px;
+}
+
+/* Divider */
+.subauth-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--subauth-spacing-md);
+  margin: var(--subauth-spacing-md) 0;
+}
+
+.subauth-divider::before,
+.subauth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background-color: var(--subauth-border);
+}
+
+.subauth-divider-text {
+  font-family: var(--subauth-font-family);
+  font-size: var(--subauth-font-size-sm);
+  color: var(--subauth-muted-foreground);
+}

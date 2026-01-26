@@ -1,0 +1,25 @@
+{
+  "name": "@subauth/ui-core",
+  "version": "0.0.1",
+  "description": "Pure JS/CSS core UI components for Subauth",
+  "main": "src/index.ts",
+  "module": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "require": "./src/index.ts",
+      "types": "./src/index.ts"
+    },
+    "./styles": "./src/styles/index.css"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  }
+}

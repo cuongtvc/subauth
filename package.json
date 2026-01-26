@@ -11,6 +11,8 @@
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20.10.0",
     "happy-dom": "^12.10.0",
     "typescript": "^5.3.0",
