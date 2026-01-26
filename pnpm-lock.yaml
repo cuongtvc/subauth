@@ -23,12 +23,12 @@ importers:
 
   packages/adapter-paddle:
     dependencies:
-      '@authpaddle/core':
-        specifier: workspace:*
-        version: link:../core
       '@paddle/paddle-node-sdk':
         specifier: ^3.3.0
         version: 3.5.0
+      '@subauth/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       typescript:
         specifier: ^5.3.0
@@ -39,7 +39,7 @@ importers:
 
   packages/adapter-postgresql:
     dependencies:
-      '@authpaddle/core':
+      '@subauth/core':
         specifier: workspace:*
         version: link:../core
       pg:
@@ -53,14 +53,27 @@ importers:
         specifier: ^1.2.0
         version: 1.6.1(@types/node@20.19.30)(happy-dom@12.10.3)
 
-  packages/adapter-ses:
+  packages/adapter-prisma:
     dependencies:
-      '@authpaddle/core':
+      '@prisma/client':
+        specifier: ^5.0.0 || ^6.0.0
+        version: 6.19.2(typescript@5.9.3)
+      '@subauth/core':
         specifier: workspace:*
         version: link:../core
+    devDependencies:
+      vitest:
+        specifier: ^1.2.0
+        version: 1.6.1(@types/node@20.19.30)(happy-dom@12.10.3)
+
+  packages/adapter-ses:
+    dependencies:
       '@aws-sdk/client-ses':
         specifier: ^3.908.0
         version: 3.974.0
+      '@subauth/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       vitest:
         specifier: ^1.2.0
@@ -68,7 +81,7 @@ importers:
 
   packages/backend:
     dependencies:
-      '@authpaddle/core':
+      '@subauth/core':
         specifier: workspace:*
         version: link:../core
       bcryptjs:
@@ -90,7 +103,7 @@ importers:
 
   packages/client:
     dependencies:
-      '@authpaddle/core':
+      '@subauth/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -375,6 +388,18 @@ packages:
   '@paddle/paddle-node-sdk@3.5.0':
     resolution: {integrity: sha512-/Ac1N5i01/YJhiqOKlfW+Rz+nfhkaCyqpkG2P5ByeUNERNFYbAOkNc/TaXO/Nhgf9r3PoatnXH6YSpEs4KdtjA==}
     engines: {node: '>=20'}
+
+  '@prisma/client@6.19.2':
+    resolution: {integrity: sha512-gR2EMvfK/aTxsuooaDA32D8v+us/8AAet+C3J1cc04SW35FPdZYgLF+iN4NDLUgAaUGTKdAB0CYenu1TAgGdMg==}
+    engines: {node: '>=18.18'}
+    peerDependencies:
+      prisma: '*'
+      typescript: '>=5.1.0'
+    peerDependenciesMeta:
+      prisma:
+        optional: true
+      typescript:
+        optional: true
 
   '@rollup/rollup-android-arm-eabi@4.56.0':
     resolution: {integrity: sha512-LNKIPA5k8PF1+jAFomGe3qN3bbIgJe/IlpDBwuVjrDKrJhVWywgnJvflMt/zkbVNLFtF1+94SljYQS6e99klnw==}
@@ -1614,6 +1639,10 @@ snapshots:
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
   '@paddle/paddle-node-sdk@3.5.0': {}
+
+  '@prisma/client@6.19.2(typescript@5.9.3)':
+    optionalDependencies:
+      typescript: 5.9.3
 
   '@rollup/rollup-android-arm-eabi@4.56.0':
     optional: true
