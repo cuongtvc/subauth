@@ -65,6 +65,10 @@ function createMockDatabaseAdapter(): DatabaseAdapter {
     },
 
     async setVerificationToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+      // Delete existing tokens for this user (like real adapters do)
+      for (const [existingToken, data] of verificationTokens) {
+        if (data.userId === userId) verificationTokens.delete(existingToken);
+      }
       verificationTokens.set(token, { userId, expiresAt });
     },
 
@@ -337,6 +341,71 @@ describe('AuthService - Email Verification Flow', () => {
     const result = authService.resendVerificationEmail('nonexistent@example.com');
     // Should not throw - to prevent user enumeration
     await expect(result).resolves.not.toThrow();
+  });
+
+  it('should generate a new token when resending verification email', async () => {
+    await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const firstToken = email.calls[0].args[1] as string;
+
+    await authService.resendVerificationEmail('test@example.com');
+
+    const secondToken = email.calls[1].args[1] as string;
+
+    // New token should be different from the original
+    expect(secondToken).not.toBe(firstToken);
+  });
+
+  it('should invalidate old token when resending verification email', async () => {
+    await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const firstToken = email.calls[0].args[1] as string;
+
+    await authService.resendVerificationEmail('test@example.com');
+
+    const secondToken = email.calls[1].args[1] as string;
+
+    // Old token should no longer work
+    await expect(
+      authService.verifyEmail({ token: firstToken })
+    ).rejects.toThrow();
+
+    // New token should work
+    const result = await authService.verifyEmail({ token: secondToken });
+    expect(result.user.emailVerified).toBe(true);
+  });
+
+  it('should normalize email when resending verification', async () => {
+    await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    // Resend with different case
+    await authService.resendVerificationEmail('TEST@EXAMPLE.COM');
+
+    expect(email.calls).toHaveLength(2);
+    expect(email.calls[1].args[0]).toBe('test@example.com');
+  });
+
+  it('should include correct verify URL when resending', async () => {
+    await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    await authService.resendVerificationEmail('test@example.com');
+
+    const verifyUrl = email.calls[1].args[2] as string;
+    const token = email.calls[1].args[1] as string;
+
+    expect(verifyUrl).toBe(`http://localhost:3000/verify-email/${token}`);
   });
 });
 

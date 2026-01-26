@@ -65,6 +65,10 @@ function createMockDatabaseAdapter(): DatabaseAdapter {
     },
 
     async setVerificationToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+      // Delete existing tokens for this user (like real adapters do)
+      for (const [existingToken, data] of verificationTokens) {
+        if (data.userId === userId) verificationTokens.delete(existingToken);
+      }
       verificationTokens.set(token, { userId, expiresAt });
     },
 
@@ -606,13 +610,16 @@ describe('Auth Handlers - Change Password', () => {
 
 describe('Auth Handlers - Resend Verification', () => {
   let handlers: ReturnType<typeof createAuthHandlers>;
+  let db: DatabaseAdapter;
+  let emailAdapter: EmailAdapter & { calls: { method: string; args: unknown[] }[] };
 
   beforeEach(async () => {
-    const db = createMockDatabaseAdapter();
+    db = createMockDatabaseAdapter();
+    emailAdapter = createMockEmailAdapterWithTracking();
     handlers = createAuthHandlers({
       auth: createTestConfig(),
       database: db,
-      email: createMockEmailAdapter(),
+      email: emailAdapter,
     });
 
     await handlers.register({
@@ -621,6 +628,7 @@ describe('Auth Handlers - Resend Verification', () => {
       body: { email: 'test@example.com', password: 'securePassword123' },
       headers: {},
     });
+    emailAdapter.calls.length = 0; // Clear registration email
   });
 
   it('should resend verification email and return 200', async () => {
@@ -634,6 +642,9 @@ describe('Auth Handlers - Resend Verification', () => {
     const response = await handlers.resendVerification(request);
 
     expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(emailAdapter.calls).toHaveLength(1);
+    expect(emailAdapter.calls[0].method).toBe('sendVerificationEmail');
   });
 
   it('should return 200 for non-existent user (security)', async () => {
@@ -647,5 +658,103 @@ describe('Auth Handlers - Resend Verification', () => {
     const response = await handlers.resendVerification(request);
 
     expect(response.status).toBe(200);
+    // Should not send email for non-existent user
+    expect(emailAdapter.calls).toHaveLength(0);
+  });
+
+  it('should return 400 for missing email', async () => {
+    const request: AuthRequest = {
+      method: 'POST',
+      path: '/resend-verification',
+      body: {},
+      headers: {},
+    };
+
+    const response = await handlers.resendVerification(request);
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('VALIDATION_ERROR');
+  });
+
+  it('should return 200 for already verified user (security)', async () => {
+    // Verify the user first
+    const user = await db.getUserByEmail('test@example.com');
+    await db.setVerificationToken(user!.id, 'test-token', new Date(Date.now() + 86400000));
+    await handlers.verifyEmail({
+      method: 'GET',
+      path: '/verify-email/test-token',
+      body: {},
+      headers: {},
+      params: { token: 'test-token' },
+    });
+    emailAdapter.calls.length = 0;
+
+    const request: AuthRequest = {
+      method: 'POST',
+      path: '/resend-verification',
+      body: { email: 'test@example.com' },
+      headers: {},
+    };
+
+    const response = await handlers.resendVerification(request);
+
+    // Returns 200 to not reveal user state (security)
+    expect(response.status).toBe(200);
+    // No email should be sent
+    expect(emailAdapter.calls).toHaveLength(0);
+  });
+
+  it('should normalize email to lowercase', async () => {
+    const request: AuthRequest = {
+      method: 'POST',
+      path: '/resend-verification',
+      body: { email: 'TEST@EXAMPLE.COM' },
+      headers: {},
+    };
+
+    const response = await handlers.resendVerification(request);
+
+    expect(response.status).toBe(200);
+    expect(emailAdapter.calls).toHaveLength(1);
+    expect(emailAdapter.calls[0].args[0]).toBe('test@example.com');
+  });
+
+  it('should generate new working verification token', async () => {
+    // Request resend
+    await handlers.resendVerification({
+      method: 'POST',
+      path: '/resend-verification',
+      body: { email: 'test@example.com' },
+      headers: {},
+    });
+
+    // Get the new token from the email
+    const newToken = emailAdapter.calls[0].args[1] as string;
+
+    // Verify using the new token
+    const verifyResponse = await handlers.verifyEmail({
+      method: 'GET',
+      path: `/verify-email/${newToken}`,
+      body: {},
+      headers: {},
+      params: { token: newToken },
+    });
+
+    expect(verifyResponse.status).toBe(200);
+    expect(verifyResponse.body.user.emailVerified).toBe(true);
   });
 });
+
+// Helper to create email adapter with call tracking
+function createMockEmailAdapterWithTracking(): EmailAdapter & { calls: { method: string; args: unknown[] }[] } {
+  const adapter = {
+    calls: [] as { method: string; args: unknown[] }[],
+    async sendVerificationEmail(email: string, token: string, verifyUrl: string) {
+      adapter.calls.push({ method: 'sendVerificationEmail', args: [email, token, verifyUrl] });
+    },
+    async sendPasswordResetEmail(email: string, token: string, resetUrl: string) {
+      adapter.calls.push({ method: 'sendPasswordResetEmail', args: [email, token, resetUrl] });
+    },
+  };
+  return adapter;
+}
