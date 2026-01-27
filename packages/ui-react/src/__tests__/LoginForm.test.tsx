@@ -82,4 +82,20 @@ describe('LoginForm', () => {
 
     expect(screen.getByText(/sign up/i)).toBeInTheDocument();
   });
+
+  it('should render resend verification link when onResendVerification is provided', () => {
+    render(<LoginForm onSubmit={vi.fn()} onResendVerification={vi.fn()} />);
+
+    expect(screen.getByText(/resend verification/i)).toBeInTheDocument();
+  });
+
+  it('should call onResendVerification when resend verification link is clicked', async () => {
+    const onResendVerification = vi.fn();
+    render(<LoginForm onSubmit={vi.fn()} onResendVerification={onResendVerification} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByText(/resend verification/i));
+
+    expect(onResendVerification).toHaveBeenCalled();
+  });
 });

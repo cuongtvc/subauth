@@ -10,6 +10,7 @@ export interface LoginFormProps {
   error?: string;
   onForgotPassword?: () => void;
   onSignUp?: () => void;
+  onResendVerification?: () => void;
   className?: string;
 }
 
@@ -19,6 +20,7 @@ export function LoginForm({
   error,
   onForgotPassword,
   onSignUp,
+  onResendVerification,
   className,
 }: LoginFormProps) {
   const [email, setEmail] = useState('');
@@ -98,6 +100,15 @@ export function LoginForm({
           Don't have an account?{' '}
           <button type="button" onClick={onSignUp} className="subauth-link">
             Sign up
+          </button>
+        </p>
+      )}
+
+      {onResendVerification && (
+        <p className="subauth-text-center subauth-text-sm subauth-text-muted" style={{ marginTop: 'var(--subauth-spacing-md)' }}>
+          Didn't receive verification email?{' '}
+          <button type="button" onClick={onResendVerification} className="subauth-link">
+            Resend verification
           </button>
         </p>
       )}
