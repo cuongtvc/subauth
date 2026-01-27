@@ -13,10 +13,7 @@ import { Pool } from 'pg';
  * - TEST_DB_USER (default: postgres)
  * - TEST_DB_PASSWORD (default: postgres)
  * 
- * Run with: TEST_INTEGRATION=true pnpm test
  */
-
-const isIntegrationTest = process.env.TEST_INTEGRATION === 'true';
 
 const config = {
   host: process.env.TEST_DB_HOST || 'localhost',
@@ -26,7 +23,7 @@ const config = {
   password: process.env.TEST_DB_PASSWORD || 'postgres',
 };
 
-describe.skipIf(!isIntegrationTest)('PostgreSQLAdapter Integration Tests', () => {
+describe('PostgreSQLAdapter Integration Tests', () => {
   let adapter: PostgreSQLAdapter;
   let pool: Pool;
 
@@ -81,15 +78,33 @@ describe.skipIf(!isIntegrationTest)('PostgreSQLAdapter Integration Tests', () =>
       )
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS verification_tokens (
+        token VARCHAR(255) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at TIMESTAMP NOT NULL
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        token VARCHAR(255) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at TIMESTAMP NOT NULL
+      )
+    `);
+
     adapter = new PostgreSQLAdapter(config);
   });
 
   afterAll(async () => {
     await adapter.close();
-    
+
     // Clean up tables
     await pool.query('DROP TABLE IF EXISTS transactions CASCADE');
     await pool.query('DROP TABLE IF EXISTS subscriptions CASCADE');
+    await pool.query('DROP TABLE IF EXISTS verification_tokens CASCADE');
+    await pool.query('DROP TABLE IF EXISTS password_reset_tokens CASCADE');
     await pool.query('DROP TABLE IF EXISTS users CASCADE');
     await pool.end();
   });
@@ -98,6 +113,8 @@ describe.skipIf(!isIntegrationTest)('PostgreSQLAdapter Integration Tests', () =>
     // Clean data before each test
     await pool.query('DELETE FROM transactions');
     await pool.query('DELETE FROM subscriptions');
+    await pool.query('DELETE FROM verification_tokens');
+    await pool.query('DELETE FROM password_reset_tokens');
     await pool.query('DELETE FROM users');
   });
 

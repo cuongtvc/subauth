@@ -11,12 +11,9 @@ import path from 'path';
  *
  * Prerequisites: Docker must be running
  *
- * Run with: TEST_INTEGRATION=true pnpm test
  */
 
-const isIntegrationTest = process.env.TEST_INTEGRATION === 'true';
-
-describe.skipIf(!isIntegrationTest)('PrismaAdapter - Shared Contract Tests', () => {
+describe('PrismaAdapter - Shared Contract Tests', () => {
   let container: StartedPostgreSqlContainer;
   let prisma: any;
   let adapter: PrismaAdapter;

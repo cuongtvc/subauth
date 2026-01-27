@@ -6,8 +6,6 @@
   "scripts": {
     "test": "vitest",
     "test:run": "vitest run",
-    "test:integration": "TEST_INTEGRATION=true vitest run",
-    "test:all": "TEST_INTEGRATION=true vitest run",
     "test:coverage": "vitest run --coverage",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck"
