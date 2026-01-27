@@ -13,3 +13,6 @@ export * from './components/alert';
 export * from './components/spinner';
 export * from './components/form-field';
 export * from './components/card';
+
+// Forms
+export * from './forms/resend-verification';

@@ -33,6 +33,9 @@ export type { RegisterFormProps } from './auth/RegisterForm';
 export { ForgotPasswordForm } from './auth/ForgotPasswordForm';
 export type { ForgotPasswordFormProps } from './auth/ForgotPasswordForm';
 
+export { ResendVerificationForm } from './auth/ResendVerificationForm';
+export type { ResendVerificationFormProps } from './auth/ResendVerificationForm';
+
 export { ResetPasswordForm } from './auth/ResetPasswordForm';
 export type { ResetPasswordFormProps } from './auth/ResetPasswordForm';
 

@@ -1,0 +1,46 @@
+/* Resend Verification Form */
+.subauth-resend-verification-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--subauth-spacing-md);
+}
+
+.subauth-resend-verification-form--loading {
+  pointer-events: none;
+}
+
+.subauth-resend-verification-form--success .subauth-form-field {
+  display: none;
+}
+
+/* Forgot Password Form */
+.subauth-forgot-password-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--subauth-spacing-md);
+}
+
+.subauth-forgot-password-form--loading {
+  pointer-events: none;
+}
+
+/* Login Form */
+.subauth-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--subauth-spacing-md);
+}
+
+/* Register Form */
+.subauth-register-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--subauth-spacing-md);
+}
+
+/* Reset Password Form */
+.subauth-reset-password-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--subauth-spacing-md);
+}
