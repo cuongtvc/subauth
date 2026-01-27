@@ -227,59 +227,140 @@ describe('PostgreSQLAdapter', () => {
   // ============================================
 
   describe('Verification Token Operations', () => {
-    describe('setVerificationToken', () => {
-      it('should set verification token for user', async () => {
-        const expiresAt = new Date('2024-01-02');
-        mockPool.query.mockResolvedValueOnce({ rows: [] });
+    describe('with separateTokenTables: true (default)', () => {
+      describe('setVerificationToken', () => {
+        it('should delete existing tokens and insert new token', async () => {
+          const expiresAt = new Date('2024-01-02');
+          mockPool.query
+            .mockResolvedValueOnce({ rows: [] }) // DELETE
+            .mockResolvedValueOnce({ rows: [] }); // INSERT
 
-        await adapter.setVerificationToken('1', 'verify_token_123', expiresAt);
+          await adapter.setVerificationToken('1', 'verify_token_123', expiresAt);
 
-        expect(mockPool.query).toHaveBeenCalledWith(
-          expect.stringContaining('verification_token'),
-          expect.arrayContaining(['1', 'verify_token_123', expiresAt])
-        );
+          expect(mockPool.query).toHaveBeenCalledTimes(2);
+          expect(mockPool.query).toHaveBeenNthCalledWith(
+            1,
+            expect.stringContaining('DELETE FROM verification_tokens'),
+            ['1']
+          );
+          expect(mockPool.query).toHaveBeenNthCalledWith(
+            2,
+            expect.stringContaining('INSERT INTO verification_tokens'),
+            ['verify_token_123', '1', expiresAt]
+          );
+        });
       });
-    });
 
-    describe('getUserByVerificationToken', () => {
-      it('should return user when token is valid and not expired', async () => {
-        mockPool.query.mockResolvedValueOnce({
-          rows: [{
-            id: '1',
-            email: 'test@example.com',
-            email_verified: false,
-            created_at: new Date('2024-01-01'),
-          }],
+      describe('getUserByVerificationToken', () => {
+        it('should return user when token is valid and not expired', async () => {
+          mockPool.query.mockResolvedValueOnce({
+            rows: [{
+              id: '1',
+              email: 'test@example.com',
+              email_verified: false,
+              created_at: new Date('2024-01-01'),
+            }],
+          });
+
+          const result = await adapter.getUserByVerificationToken('verify_token_123');
+
+          expect(mockPool.query).toHaveBeenCalledWith(
+            expect.stringContaining('JOIN verification_tokens'),
+            ['verify_token_123']
+          );
+          expect(result?.id).toBe('1');
         });
 
-        const result = await adapter.getUserByVerificationToken('verify_token_123');
+        it('should return null when token not found or expired', async () => {
+          mockPool.query.mockResolvedValueOnce({ rows: [] });
 
-        expect(mockPool.query).toHaveBeenCalledWith(
-          expect.stringContaining('verification_token'),
-          ['verify_token_123']
-        );
-        expect(result?.id).toBe('1');
+          const result = await adapter.getUserByVerificationToken('expired_token');
+
+          expect(result).toBeNull();
+        });
       });
 
-      it('should return null when token not found or expired', async () => {
-        mockPool.query.mockResolvedValueOnce({ rows: [] });
+      describe('clearVerificationToken', () => {
+        it('should delete from verification_tokens table', async () => {
+          mockPool.query.mockResolvedValueOnce({ rows: [] });
 
-        const result = await adapter.getUserByVerificationToken('expired_token');
+          await adapter.clearVerificationToken('1');
 
-        expect(result).toBeNull();
+          expect(mockPool.query).toHaveBeenCalledWith(
+            expect.stringContaining('DELETE FROM verification_tokens'),
+            ['1']
+          );
+        });
       });
     });
 
-    describe('clearVerificationToken', () => {
-      it('should clear verification token for user', async () => {
-        mockPool.query.mockResolvedValueOnce({ rows: [] });
+    describe('with separateTokenTables: false', () => {
+      let legacyAdapter: PostgreSQLAdapter;
+      let legacyMockPool: typeof mockPool;
 
-        await adapter.clearVerificationToken('1');
+      beforeEach(() => {
+        legacyAdapter = new PostgreSQLAdapter({
+          host: 'localhost',
+          port: 5432,
+          database: 'test_db',
+          user: 'test_user',
+          password: 'test_pass',
+          separateTokenTables: false,
+        });
+        legacyMockPool = (legacyAdapter as any).pool;
+      });
 
-        expect(mockPool.query).toHaveBeenCalledWith(
-          expect.stringContaining('UPDATE users'),
-          expect.arrayContaining(['1'])
-        );
+      afterEach(async () => {
+        await legacyAdapter.close();
+      });
+
+      describe('setVerificationToken', () => {
+        it('should update verification token on users table', async () => {
+          const expiresAt = new Date('2024-01-02');
+          legacyMockPool.query.mockResolvedValueOnce({ rows: [] });
+
+          await legacyAdapter.setVerificationToken('1', 'verify_token_123', expiresAt);
+
+          expect(legacyMockPool.query).toHaveBeenCalledTimes(1);
+          expect(legacyMockPool.query).toHaveBeenCalledWith(
+            expect.stringContaining('UPDATE users'),
+            ['1', 'verify_token_123', expiresAt]
+          );
+        });
+      });
+
+      describe('getUserByVerificationToken', () => {
+        it('should query users table directly', async () => {
+          legacyMockPool.query.mockResolvedValueOnce({
+            rows: [{
+              id: '1',
+              email: 'test@example.com',
+              email_verified: false,
+              created_at: new Date('2024-01-01'),
+            }],
+          });
+
+          const result = await legacyAdapter.getUserByVerificationToken('verify_token_123');
+
+          expect(legacyMockPool.query).toHaveBeenCalledWith(
+            expect.stringContaining('FROM users'),
+            ['verify_token_123']
+          );
+          expect(result?.id).toBe('1');
+        });
+      });
+
+      describe('clearVerificationToken', () => {
+        it('should update users table to clear token', async () => {
+          legacyMockPool.query.mockResolvedValueOnce({ rows: [] });
+
+          await legacyAdapter.clearVerificationToken('1');
+
+          expect(legacyMockPool.query).toHaveBeenCalledWith(
+            expect.stringContaining('UPDATE users'),
+            ['1']
+          );
+        });
       });
     });
   });
@@ -289,59 +370,140 @@ describe('PostgreSQLAdapter', () => {
   // ============================================
 
   describe('Password Reset Token Operations', () => {
-    describe('setPasswordResetToken', () => {
-      it('should set password reset token for user', async () => {
-        const expiresAt = new Date('2024-01-02');
-        mockPool.query.mockResolvedValueOnce({ rows: [] });
+    describe('with separateTokenTables: true (default)', () => {
+      describe('setPasswordResetToken', () => {
+        it('should delete existing tokens and insert new token', async () => {
+          const expiresAt = new Date('2024-01-02');
+          mockPool.query
+            .mockResolvedValueOnce({ rows: [] }) // DELETE
+            .mockResolvedValueOnce({ rows: [] }); // INSERT
 
-        await adapter.setPasswordResetToken('1', 'reset_token_123', expiresAt);
+          await adapter.setPasswordResetToken('1', 'reset_token_123', expiresAt);
 
-        expect(mockPool.query).toHaveBeenCalledWith(
-          expect.stringContaining('password_reset_token'),
-          expect.arrayContaining(['1', 'reset_token_123', expiresAt])
-        );
+          expect(mockPool.query).toHaveBeenCalledTimes(2);
+          expect(mockPool.query).toHaveBeenNthCalledWith(
+            1,
+            expect.stringContaining('DELETE FROM password_reset_tokens'),
+            ['1']
+          );
+          expect(mockPool.query).toHaveBeenNthCalledWith(
+            2,
+            expect.stringContaining('INSERT INTO password_reset_tokens'),
+            ['reset_token_123', '1', expiresAt]
+          );
+        });
       });
-    });
 
-    describe('getUserByPasswordResetToken', () => {
-      it('should return user when reset token is valid and not expired', async () => {
-        mockPool.query.mockResolvedValueOnce({
-          rows: [{
-            id: '1',
-            email: 'test@example.com',
-            email_verified: true,
-            created_at: new Date('2024-01-01'),
-          }],
+      describe('getUserByPasswordResetToken', () => {
+        it('should return user when reset token is valid and not expired', async () => {
+          mockPool.query.mockResolvedValueOnce({
+            rows: [{
+              id: '1',
+              email: 'test@example.com',
+              email_verified: true,
+              created_at: new Date('2024-01-01'),
+            }],
+          });
+
+          const result = await adapter.getUserByPasswordResetToken('reset_token_123');
+
+          expect(mockPool.query).toHaveBeenCalledWith(
+            expect.stringContaining('JOIN password_reset_tokens'),
+            ['reset_token_123']
+          );
+          expect(result?.id).toBe('1');
         });
 
-        const result = await adapter.getUserByPasswordResetToken('reset_token_123');
+        it('should return null when reset token not found or expired', async () => {
+          mockPool.query.mockResolvedValueOnce({ rows: [] });
 
-        expect(mockPool.query).toHaveBeenCalledWith(
-          expect.stringContaining('password_reset_token'),
-          ['reset_token_123']
-        );
-        expect(result?.id).toBe('1');
+          const result = await adapter.getUserByPasswordResetToken('expired_token');
+
+          expect(result).toBeNull();
+        });
       });
 
-      it('should return null when reset token not found or expired', async () => {
-        mockPool.query.mockResolvedValueOnce({ rows: [] });
+      describe('clearPasswordResetToken', () => {
+        it('should delete from password_reset_tokens table', async () => {
+          mockPool.query.mockResolvedValueOnce({ rows: [] });
 
-        const result = await adapter.getUserByPasswordResetToken('expired_token');
+          await adapter.clearPasswordResetToken('1');
 
-        expect(result).toBeNull();
+          expect(mockPool.query).toHaveBeenCalledWith(
+            expect.stringContaining('DELETE FROM password_reset_tokens'),
+            ['1']
+          );
+        });
       });
     });
 
-    describe('clearPasswordResetToken', () => {
-      it('should clear password reset token for user', async () => {
-        mockPool.query.mockResolvedValueOnce({ rows: [] });
+    describe('with separateTokenTables: false', () => {
+      let legacyAdapter: PostgreSQLAdapter;
+      let legacyMockPool: typeof mockPool;
 
-        await adapter.clearPasswordResetToken('1');
+      beforeEach(() => {
+        legacyAdapter = new PostgreSQLAdapter({
+          host: 'localhost',
+          port: 5432,
+          database: 'test_db',
+          user: 'test_user',
+          password: 'test_pass',
+          separateTokenTables: false,
+        });
+        legacyMockPool = (legacyAdapter as any).pool;
+      });
 
-        expect(mockPool.query).toHaveBeenCalledWith(
-          expect.stringContaining('UPDATE users'),
-          expect.arrayContaining(['1'])
-        );
+      afterEach(async () => {
+        await legacyAdapter.close();
+      });
+
+      describe('setPasswordResetToken', () => {
+        it('should update password reset token on users table', async () => {
+          const expiresAt = new Date('2024-01-02');
+          legacyMockPool.query.mockResolvedValueOnce({ rows: [] });
+
+          await legacyAdapter.setPasswordResetToken('1', 'reset_token_123', expiresAt);
+
+          expect(legacyMockPool.query).toHaveBeenCalledTimes(1);
+          expect(legacyMockPool.query).toHaveBeenCalledWith(
+            expect.stringContaining('UPDATE users'),
+            ['1', 'reset_token_123', expiresAt]
+          );
+        });
+      });
+
+      describe('getUserByPasswordResetToken', () => {
+        it('should query users table directly', async () => {
+          legacyMockPool.query.mockResolvedValueOnce({
+            rows: [{
+              id: '1',
+              email: 'test@example.com',
+              email_verified: true,
+              created_at: new Date('2024-01-01'),
+            }],
+          });
+
+          const result = await legacyAdapter.getUserByPasswordResetToken('reset_token_123');
+
+          expect(legacyMockPool.query).toHaveBeenCalledWith(
+            expect.stringContaining('FROM users'),
+            ['reset_token_123']
+          );
+          expect(result?.id).toBe('1');
+        });
+      });
+
+      describe('clearPasswordResetToken', () => {
+        it('should update users table to clear token', async () => {
+          legacyMockPool.query.mockResolvedValueOnce({ rows: [] });
+
+          await legacyAdapter.clearPasswordResetToken('1');
+
+          expect(legacyMockPool.query).toHaveBeenCalledWith(
+            expect.stringContaining('UPDATE users'),
+            ['1']
+          );
+        });
       });
     });
   });

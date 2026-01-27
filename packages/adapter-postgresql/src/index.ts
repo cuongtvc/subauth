@@ -1,6 +1,6 @@
 import { Pool, PoolConfig } from 'pg';
+import { BaseAdapter, BaseAdapterConfig } from '@subauth/adapter-base';
 import type {
-  DatabaseAdapter,
   User,
   Subscription,
   Transaction,
@@ -45,18 +45,19 @@ interface TransactionRow {
 }
 
 // Configuration options for the adapter
-export interface PostgreSQLAdapterConfig extends PoolConfig {
+export interface PostgreSQLAdapterConfig extends PoolConfig, BaseAdapterConfig {
   // Additional configuration can be added here
 }
 
 /**
  * PostgreSQL implementation of the DatabaseAdapter interface.
- * Provides all database operations needed by subauth.
+ * Extends BaseAdapter for shared token operation logic.
  */
-export class PostgreSQLAdapter implements DatabaseAdapter {
+export class PostgreSQLAdapter extends BaseAdapter {
   private pool: Pool;
 
   constructor(config: PostgreSQLAdapterConfig) {
+    super(config);
     this.pool = new Pool(config);
   }
 
@@ -216,10 +217,44 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
   }
 
   // ============================================
-  // VERIFICATION TOKEN OPERATIONS
+  // VERIFICATION TOKEN OPERATIONS (Protected methods for BaseAdapter)
   // ============================================
 
-  async setVerificationToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+  // Separate table operations
+  protected async deleteVerificationTokensByUserId(userId: string): Promise<void> {
+    const sql = `DELETE FROM verification_tokens WHERE user_id = $1`;
+    await this.pool.query(sql, [userId]);
+  }
+
+  protected async insertVerificationToken(token: string, userId: string, expiresAt: Date): Promise<void> {
+    const sql = `
+      INSERT INTO verification_tokens (token, user_id, expires_at)
+      VALUES ($1, $2, $3)
+    `;
+    await this.pool.query(sql, [token, userId, expiresAt]);
+  }
+
+  protected async getUserByVerificationTokenFromTable(token: string): Promise<User | null> {
+    const sql = `
+      SELECT u.id, u.email, u.email_verified, u.created_at
+      FROM users u
+      JOIN verification_tokens vt ON u.id = vt.user_id
+      WHERE vt.token = $1 AND vt.expires_at > NOW()
+    `;
+    const result = await this.pool.query<UserRow>(sql, [token]);
+    if (result.rows.length === 0) {
+      return null;
+    }
+    return this.mapUserRow(result.rows[0]);
+  }
+
+  protected async deleteVerificationTokenByUserId(userId: string): Promise<void> {
+    const sql = `DELETE FROM verification_tokens WHERE user_id = $1`;
+    await this.pool.query(sql, [userId]);
+  }
+
+  // User table operations (legacy mode)
+  protected async updateUserVerificationToken(userId: string, token: string, expiresAt: Date): Promise<void> {
     const sql = `
       UPDATE users
       SET verification_token = $2, verification_token_expires = $3
@@ -228,7 +263,7 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
     await this.pool.query(sql, [userId, token, expiresAt]);
   }
 
-  async getUserByVerificationToken(token: string): Promise<User | null> {
+  protected async getUserByVerificationTokenFromUser(token: string): Promise<User | null> {
     const sql = `
       SELECT id, email, email_verified, created_at
       FROM users
@@ -242,7 +277,7 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
     return this.mapUserRow(result.rows[0]);
   }
 
-  async clearVerificationToken(userId: string): Promise<void> {
+  protected async clearUserVerificationToken(userId: string): Promise<void> {
     const sql = `
       UPDATE users
       SET verification_token = NULL, verification_token_expires = NULL
@@ -252,10 +287,44 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
   }
 
   // ============================================
-  // PASSWORD RESET TOKEN OPERATIONS
+  // PASSWORD RESET TOKEN OPERATIONS (Protected methods for BaseAdapter)
   // ============================================
 
-  async setPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+  // Separate table operations
+  protected async deletePasswordResetTokensByUserId(userId: string): Promise<void> {
+    const sql = `DELETE FROM password_reset_tokens WHERE user_id = $1`;
+    await this.pool.query(sql, [userId]);
+  }
+
+  protected async insertPasswordResetToken(token: string, userId: string, expiresAt: Date): Promise<void> {
+    const sql = `
+      INSERT INTO password_reset_tokens (token, user_id, expires_at)
+      VALUES ($1, $2, $3)
+    `;
+    await this.pool.query(sql, [token, userId, expiresAt]);
+  }
+
+  protected async getUserByPasswordResetTokenFromTable(token: string): Promise<User | null> {
+    const sql = `
+      SELECT u.id, u.email, u.email_verified, u.created_at
+      FROM users u
+      JOIN password_reset_tokens prt ON u.id = prt.user_id
+      WHERE prt.token = $1 AND prt.expires_at > NOW()
+    `;
+    const result = await this.pool.query<UserRow>(sql, [token]);
+    if (result.rows.length === 0) {
+      return null;
+    }
+    return this.mapUserRow(result.rows[0]);
+  }
+
+  protected async deletePasswordResetTokenByUserId(userId: string): Promise<void> {
+    const sql = `DELETE FROM password_reset_tokens WHERE user_id = $1`;
+    await this.pool.query(sql, [userId]);
+  }
+
+  // User table operations (legacy mode)
+  protected async updateUserPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
     const sql = `
       UPDATE users
       SET password_reset_token = $2, password_reset_token_expires = $3
@@ -264,7 +333,7 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
     await this.pool.query(sql, [userId, token, expiresAt]);
   }
 
-  async getUserByPasswordResetToken(token: string): Promise<User | null> {
+  protected async getUserByPasswordResetTokenFromUser(token: string): Promise<User | null> {
     const sql = `
       SELECT id, email, email_verified, created_at
       FROM users
@@ -278,7 +347,7 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
     return this.mapUserRow(result.rows[0]);
   }
 
-  async clearPasswordResetToken(userId: string): Promise<void> {
+  protected async clearUserPasswordResetToken(userId: string): Promise<void> {
     const sql = `
       UPDATE users
       SET password_reset_token = NULL, password_reset_token_expires = NULL

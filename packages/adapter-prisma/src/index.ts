@@ -1,5 +1,5 @@
+import { BaseAdapter } from '@subauth/adapter-base';
 import type {
-  DatabaseAdapter,
   User,
   Subscription,
   Transaction,
@@ -207,18 +207,17 @@ const defaultTransactionFields = {
  * });
  * ```
  */
-export class PrismaAdapter implements DatabaseAdapter {
+export class PrismaAdapter extends BaseAdapter {
   private models: PrismaModels;
   private userFields: Required<NonNullable<FieldMappings['user']>>;
   private subscriptionFields: Required<NonNullable<FieldMappings['subscription']>>;
   private verificationTokenFields: Required<NonNullable<FieldMappings['verificationToken']>>;
   private passwordResetTokenFields: Required<NonNullable<FieldMappings['passwordResetToken']>>;
   private transactionFields: Required<NonNullable<FieldMappings['transaction']>>;
-  private separateTokenTables: boolean;
 
   constructor(config: PrismaAdapterConfig) {
+    super({ separateTokenTables: config.separateTokenTables });
     this.models = config.models;
-    this.separateTokenTables = config.separateTokenTables ?? true;
 
     // Merge field mappings with defaults
     this.userFields = { ...defaultUserFields, ...config.fieldMappings?.user };
@@ -345,17 +344,20 @@ export class PrismaAdapter implements DatabaseAdapter {
   }
 
   // ============================================
-  // VERIFICATION TOKEN OPERATIONS
+  // VERIFICATION TOKEN OPERATIONS (Protected methods for BaseAdapter)
   // ============================================
 
-  async setVerificationToken(userId: string, token: string, expiresAt: Date): Promise<void> {
-    if (this.separateTokenTables && this.models.verificationToken) {
-      // Delete existing tokens for this user
+  // Separate table operations
+  protected async deleteVerificationTokensByUserId(userId: string): Promise<void> {
+    if (this.models.verificationToken) {
       await this.models.verificationToken.deleteMany({
         where: { [this.verificationTokenFields.userId]: userId },
       });
+    }
+  }
 
-      // Create new token
+  protected async insertVerificationToken(token: string, userId: string, expiresAt: Date): Promise<void> {
+    if (this.models.verificationToken) {
       await this.models.verificationToken.create({
         data: {
           [this.verificationTokenFields.token]: token,
@@ -363,87 +365,97 @@ export class PrismaAdapter implements DatabaseAdapter {
           [this.verificationTokenFields.expiresAt]: expiresAt,
         },
       });
-    } else {
-      // Store token on user table
-      await this.models.user.update({
-        where: { [this.userFields.id]: userId },
-        data: {
-          [this.userFields.verificationToken]: token,
-          [this.userFields.verificationTokenExpires]: expiresAt,
-        },
-      });
     }
   }
 
-  async getUserByVerificationToken(token: string): Promise<User | null> {
-    if (this.separateTokenTables && this.models.verificationToken) {
-      const dbToken = await this.models.verificationToken.findUnique({
-        where: { [this.verificationTokenFields.token]: token },
-        include: { user: true },
-      });
-
-      if (!dbToken) {
-        return null;
-      }
-
-      // Check expiration
-      const expiresAt = dbToken[this.verificationTokenFields.expiresAt] as Date;
-      if (expiresAt < new Date()) {
-        return null;
-      }
-
-      const dbUser = dbToken.user as Record<string, unknown>;
-      return this.mapDbUserToUser(dbUser);
-    } else {
-      // Token stored on user table
-      const dbUser = await this.models.user.findFirst({
-        where: {
-          [this.userFields.verificationToken]: token,
-        },
-      });
-
-      if (!dbUser) {
-        return null;
-      }
-
-      // Check expiration
-      const expiresAt = dbUser[this.userFields.verificationTokenExpires] as Date | null;
-      if (!expiresAt || expiresAt < new Date()) {
-        return null;
-      }
-
-      return this.mapDbUserToUser(dbUser);
+  protected async getUserByVerificationTokenFromTable(token: string): Promise<User | null> {
+    if (!this.models.verificationToken) {
+      return null;
     }
+
+    const dbToken = await this.models.verificationToken.findUnique({
+      where: { [this.verificationTokenFields.token]: token },
+      include: { user: true },
+    });
+
+    if (!dbToken) {
+      return null;
+    }
+
+    // Check expiration
+    const expiresAt = dbToken[this.verificationTokenFields.expiresAt] as Date;
+    if (expiresAt < new Date()) {
+      return null;
+    }
+
+    const dbUser = dbToken.user as Record<string, unknown>;
+    return this.mapDbUserToUser(dbUser);
   }
 
-  async clearVerificationToken(userId: string): Promise<void> {
-    if (this.separateTokenTables && this.models.verificationToken) {
+  protected async deleteVerificationTokenByUserId(userId: string): Promise<void> {
+    if (this.models.verificationToken) {
       await this.models.verificationToken.deleteMany({
         where: { [this.verificationTokenFields.userId]: userId },
       });
-    } else {
-      await this.models.user.update({
-        where: { [this.userFields.id]: userId },
-        data: {
-          [this.userFields.verificationToken]: null,
-          [this.userFields.verificationTokenExpires]: null,
-        },
+    }
+  }
+
+  // User table operations (legacy mode)
+  protected async updateUserVerificationToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+    await this.models.user.update({
+      where: { [this.userFields.id]: userId },
+      data: {
+        [this.userFields.verificationToken]: token,
+        [this.userFields.verificationTokenExpires]: expiresAt,
+      },
+    });
+  }
+
+  protected async getUserByVerificationTokenFromUser(token: string): Promise<User | null> {
+    const dbUser = await this.models.user.findFirst({
+      where: {
+        [this.userFields.verificationToken]: token,
+      },
+    });
+
+    if (!dbUser) {
+      return null;
+    }
+
+    // Check expiration
+    const expiresAt = dbUser[this.userFields.verificationTokenExpires] as Date | null;
+    if (!expiresAt || expiresAt < new Date()) {
+      return null;
+    }
+
+    return this.mapDbUserToUser(dbUser);
+  }
+
+  protected async clearUserVerificationToken(userId: string): Promise<void> {
+    await this.models.user.update({
+      where: { [this.userFields.id]: userId },
+      data: {
+        [this.userFields.verificationToken]: null,
+        [this.userFields.verificationTokenExpires]: null,
+      },
+    });
+  }
+
+  // ============================================
+  // PASSWORD RESET TOKEN OPERATIONS (Protected methods for BaseAdapter)
+  // ============================================
+
+  // Separate table operations
+  protected async deletePasswordResetTokensByUserId(userId: string): Promise<void> {
+    if (this.models.passwordResetToken) {
+      await this.models.passwordResetToken.deleteMany({
+        where: { [this.passwordResetTokenFields.userId]: userId },
       });
     }
   }
 
-  // ============================================
-  // PASSWORD RESET TOKEN OPERATIONS
-  // ============================================
-
-  async setPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
-    if (this.separateTokenTables && this.models.passwordResetToken) {
-      // Delete existing tokens for this user
-      await this.models.passwordResetToken.deleteMany({
-        where: { [this.passwordResetTokenFields.userId]: userId },
-      });
-
-      // Create new token
+  protected async insertPasswordResetToken(token: string, userId: string, expiresAt: Date): Promise<void> {
+    if (this.models.passwordResetToken) {
       await this.models.passwordResetToken.create({
         data: {
           [this.passwordResetTokenFields.token]: token,
@@ -451,73 +463,80 @@ export class PrismaAdapter implements DatabaseAdapter {
           [this.passwordResetTokenFields.expiresAt]: expiresAt,
         },
       });
-    } else {
-      // Store token on user table
-      await this.models.user.update({
-        where: { [this.userFields.id]: userId },
-        data: {
-          [this.userFields.passwordResetToken]: token,
-          [this.userFields.passwordResetTokenExpires]: expiresAt,
-        },
-      });
     }
   }
 
-  async getUserByPasswordResetToken(token: string): Promise<User | null> {
-    if (this.separateTokenTables && this.models.passwordResetToken) {
-      const dbToken = await this.models.passwordResetToken.findUnique({
-        where: { [this.passwordResetTokenFields.token]: token },
-        include: { user: true },
-      });
-
-      if (!dbToken) {
-        return null;
-      }
-
-      // Check expiration
-      const expiresAt = dbToken[this.passwordResetTokenFields.expiresAt] as Date;
-      if (expiresAt < new Date()) {
-        return null;
-      }
-
-      const dbUser = dbToken.user as Record<string, unknown>;
-      return this.mapDbUserToUser(dbUser);
-    } else {
-      // Token stored on user table
-      const dbUser = await this.models.user.findFirst({
-        where: {
-          [this.userFields.passwordResetToken]: token,
-        },
-      });
-
-      if (!dbUser) {
-        return null;
-      }
-
-      // Check expiration
-      const expiresAt = dbUser[this.userFields.passwordResetTokenExpires] as Date | null;
-      if (!expiresAt || expiresAt < new Date()) {
-        return null;
-      }
-
-      return this.mapDbUserToUser(dbUser);
+  protected async getUserByPasswordResetTokenFromTable(token: string): Promise<User | null> {
+    if (!this.models.passwordResetToken) {
+      return null;
     }
+
+    const dbToken = await this.models.passwordResetToken.findUnique({
+      where: { [this.passwordResetTokenFields.token]: token },
+      include: { user: true },
+    });
+
+    if (!dbToken) {
+      return null;
+    }
+
+    // Check expiration
+    const expiresAt = dbToken[this.passwordResetTokenFields.expiresAt] as Date;
+    if (expiresAt < new Date()) {
+      return null;
+    }
+
+    const dbUser = dbToken.user as Record<string, unknown>;
+    return this.mapDbUserToUser(dbUser);
   }
 
-  async clearPasswordResetToken(userId: string): Promise<void> {
-    if (this.separateTokenTables && this.models.passwordResetToken) {
+  protected async deletePasswordResetTokenByUserId(userId: string): Promise<void> {
+    if (this.models.passwordResetToken) {
       await this.models.passwordResetToken.deleteMany({
         where: { [this.passwordResetTokenFields.userId]: userId },
       });
-    } else {
-      await this.models.user.update({
-        where: { [this.userFields.id]: userId },
-        data: {
-          [this.userFields.passwordResetToken]: null,
-          [this.userFields.passwordResetTokenExpires]: null,
-        },
-      });
     }
+  }
+
+  // User table operations (legacy mode)
+  protected async updateUserPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+    await this.models.user.update({
+      where: { [this.userFields.id]: userId },
+      data: {
+        [this.userFields.passwordResetToken]: token,
+        [this.userFields.passwordResetTokenExpires]: expiresAt,
+      },
+    });
+  }
+
+  protected async getUserByPasswordResetTokenFromUser(token: string): Promise<User | null> {
+    const dbUser = await this.models.user.findFirst({
+      where: {
+        [this.userFields.passwordResetToken]: token,
+      },
+    });
+
+    if (!dbUser) {
+      return null;
+    }
+
+    // Check expiration
+    const expiresAt = dbUser[this.userFields.passwordResetTokenExpires] as Date | null;
+    if (!expiresAt || expiresAt < new Date()) {
+      return null;
+    }
+
+    return this.mapDbUserToUser(dbUser);
+  }
+
+  protected async clearUserPasswordResetToken(userId: string): Promise<void> {
+    await this.models.user.update({
+      where: { [this.userFields.id]: userId },
+      data: {
+        [this.userFields.passwordResetToken]: null,
+        [this.userFields.passwordResetTokenExpires]: null,
+      },
+    });
   }
 
   // ============================================

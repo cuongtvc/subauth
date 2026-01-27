@@ -11,6 +11,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@subauth/adapter-base": "workspace:*",
     "@subauth/core": "workspace:*"
   },
   "devDependencies": {
