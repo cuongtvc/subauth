@@ -160,10 +160,11 @@ describe.skipIf(!isIntegrationTest)('PostgreSQLAdapter Integration Tests', () =>
 
     it('should not find user with expired token', async () => {
       const user = await adapter.createUser('expired@example.com', 'hashed');
-      const pastDate = new Date(Date.now() - 3600000); // 1 hour ago
-      
+      // Use 7 days ago to avoid clock skew issues with Docker containers
+      const pastDate = new Date(Date.now() - 7 * 24 * 3600000);
+
       await adapter.setVerificationToken(user.id, 'expired_token', pastDate);
-      
+
       const found = await adapter.getUserByVerificationToken('expired_token');
       expect(found).toBeNull();
     });
