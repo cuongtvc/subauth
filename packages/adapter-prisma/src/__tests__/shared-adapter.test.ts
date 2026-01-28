@@ -66,6 +66,7 @@ describe('PrismaAdapter - Shared Contract Tests', () => {
     // Clean data in correct order (respecting foreign keys)
     await prisma.transaction.deleteMany();
     await prisma.subscription.deleteMany();
+    await prisma.refreshToken.deleteMany();
     await prisma.passwordResetToken.deleteMany();
     await prisma.verificationToken.deleteMany();
     await prisma.user.deleteMany();

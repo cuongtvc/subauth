@@ -85,6 +85,12 @@ export abstract class BaseAdapter implements DatabaseAdapter {
   protected abstract getUserByPasswordResetTokenFromUser(token: string): Promise<User | null>;
   protected abstract clearUserPasswordResetToken(userId: string): Promise<void>;
 
+  // Refresh token operations (always uses separate table - multiple tokens per user allowed)
+  protected abstract insertRefreshToken(userId: string, token: string, expiresAt: Date): Promise<void>;
+  protected abstract getRefreshTokenFromTable(token: string): Promise<{ userId: string; expiresAt: Date } | null>;
+  protected abstract deleteRefreshTokenFromTable(token: string): Promise<void>;
+  protected abstract deleteAllRefreshTokensByUserId(userId: string): Promise<void>;
+
   // ============================================
   // VERIFICATION TOKEN OPERATIONS
   // ============================================
@@ -141,5 +147,25 @@ export abstract class BaseAdapter implements DatabaseAdapter {
     } else {
       await this.clearUserPasswordResetToken(userId);
     }
+  }
+
+  // ============================================
+  // REFRESH TOKEN OPERATIONS
+  // ============================================
+
+  async createRefreshToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+    await this.insertRefreshToken(userId, token, expiresAt);
+  }
+
+  async getRefreshToken(token: string): Promise<{ userId: string; expiresAt: Date } | null> {
+    return this.getRefreshTokenFromTable(token);
+  }
+
+  async deleteRefreshToken(token: string): Promise<void> {
+    await this.deleteRefreshTokenFromTable(token);
+  }
+
+  async deleteAllRefreshTokens(userId: string): Promise<void> {
+    await this.deleteAllRefreshTokensByUserId(userId);
   }
 }

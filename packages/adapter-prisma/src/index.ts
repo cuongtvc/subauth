@@ -56,6 +56,12 @@ export interface PrismaModels {
     delete?(args: { where: Record<string, unknown> }): Promise<Record<string, unknown>>;
     deleteMany(args: { where: Record<string, unknown> }): Promise<{ count: number }>;
   };
+  refreshToken?: {
+    create(args: { data: Record<string, unknown> }): Promise<Record<string, unknown>>;
+    findUnique(args: { where: Record<string, unknown> }): Promise<Record<string, unknown> | null>;
+    delete?(args: { where: Record<string, unknown> }): Promise<Record<string, unknown>>;
+    deleteMany(args: { where: Record<string, unknown> }): Promise<{ count: number }>;
+  };
 }
 
 /**
@@ -98,6 +104,11 @@ export interface FieldMappings {
     expiresAt?: string;
   };
   passwordResetToken?: {
+    token?: string;
+    userId?: string;
+    expiresAt?: string;
+  };
+  refreshToken?: {
     token?: string;
     userId?: string;
     expiresAt?: string;
@@ -213,6 +224,7 @@ export class PrismaAdapter extends BaseAdapter {
   private subscriptionFields: Required<NonNullable<FieldMappings['subscription']>>;
   private verificationTokenFields: Required<NonNullable<FieldMappings['verificationToken']>>;
   private passwordResetTokenFields: Required<NonNullable<FieldMappings['passwordResetToken']>>;
+  private refreshTokenFields: Required<NonNullable<FieldMappings['refreshToken']>>;
   private transactionFields: Required<NonNullable<FieldMappings['transaction']>>;
 
   constructor(config: PrismaAdapterConfig) {
@@ -224,6 +236,7 @@ export class PrismaAdapter extends BaseAdapter {
     this.subscriptionFields = { ...defaultSubscriptionFields, ...config.fieldMappings?.subscription };
     this.verificationTokenFields = { ...defaultTokenFields, ...config.fieldMappings?.verificationToken };
     this.passwordResetTokenFields = { ...defaultTokenFields, ...config.fieldMappings?.passwordResetToken };
+    this.refreshTokenFields = { ...defaultTokenFields, ...config.fieldMappings?.refreshToken };
     this.transactionFields = { ...defaultTransactionFields, ...config.fieldMappings?.transaction };
   }
 
@@ -537,6 +550,63 @@ export class PrismaAdapter extends BaseAdapter {
         [this.userFields.passwordResetTokenExpires]: null,
       },
     });
+  }
+
+  // ============================================
+  // REFRESH TOKEN OPERATIONS (Protected methods for BaseAdapter)
+  // ============================================
+
+  protected async insertRefreshToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+    if (this.models.refreshToken) {
+      await this.models.refreshToken.create({
+        data: {
+          [this.refreshTokenFields.token]: token,
+          [this.refreshTokenFields.userId]: userId,
+          [this.refreshTokenFields.expiresAt]: expiresAt,
+        },
+      });
+    }
+  }
+
+  protected async getRefreshTokenFromTable(token: string): Promise<{ userId: string; expiresAt: Date } | null> {
+    if (!this.models.refreshToken) {
+      return null;
+    }
+
+    const dbToken = await this.models.refreshToken.findUnique({
+      where: { [this.refreshTokenFields.token]: token },
+    });
+
+    if (!dbToken) {
+      return null;
+    }
+
+    // Check expiration
+    const expiresAt = dbToken[this.refreshTokenFields.expiresAt] as Date;
+    if (expiresAt < new Date()) {
+      return null;
+    }
+
+    return {
+      userId: String(dbToken[this.refreshTokenFields.userId]),
+      expiresAt,
+    };
+  }
+
+  protected async deleteRefreshTokenFromTable(token: string): Promise<void> {
+    if (this.models.refreshToken) {
+      await this.models.refreshToken.deleteMany({
+        where: { [this.refreshTokenFields.token]: token },
+      });
+    }
+  }
+
+  protected async deleteAllRefreshTokensByUserId(userId: string): Promise<void> {
+    if (this.models.refreshToken) {
+      await this.models.refreshToken.deleteMany({
+        where: { [this.refreshTokenFields.userId]: userId },
+      });
+    }
   }
 
   // ============================================

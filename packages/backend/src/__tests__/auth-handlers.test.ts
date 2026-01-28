@@ -18,6 +18,7 @@ function createMockDatabaseAdapter(): DatabaseAdapter {
   const users = new Map<string, User & { passwordHash: string }>();
   const verificationTokens = new Map<string, { userId: string; expiresAt: Date }>();
   const passwordResetTokens = new Map<string, { userId: string; expiresAt: Date }>();
+  const refreshTokens = new Map<string, { userId: string; expiresAt: Date }>();
   let idCounter = 1;
 
   return {
@@ -100,6 +101,27 @@ function createMockDatabaseAdapter(): DatabaseAdapter {
       }
     },
 
+    async createRefreshToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+      refreshTokens.set(token, { userId, expiresAt });
+    },
+
+    async getRefreshToken(token: string): Promise<{ userId: string; expiresAt: Date } | null> {
+      const data = refreshTokens.get(token);
+      if (!data) return null;
+      if (data.expiresAt < new Date()) return null;
+      return data;
+    },
+
+    async deleteRefreshToken(token: string): Promise<void> {
+      refreshTokens.delete(token);
+    },
+
+    async deleteAllRefreshTokens(userId: string): Promise<void> {
+      for (const [token, data] of refreshTokens) {
+        if (data.userId === userId) refreshTokens.delete(token);
+      }
+    },
+
     // Subscription stubs
     async createSubscription() { throw new Error('Not implemented'); },
     async getSubscriptionByUserId() { return null; },
@@ -119,14 +141,16 @@ function createMockEmailAdapter(): EmailAdapter {
   };
 }
 
-function createTestConfig(): AuthConfig {
+function createTestConfig(overrides?: Partial<AuthConfig>): AuthConfig {
   return {
     jwtSecret: 'test-secret-key',
     jwtExpiresIn: '7d',
+    refreshTokenExpiresIn: '7d',
     verificationTokenExpiresIn: 24 * 60 * 60 * 1000,
     passwordResetTokenExpiresIn: 60 * 60 * 1000,
     baseUrl: 'http://localhost:3000',
     passwordMinLength: 8,
+    ...overrides,
   };
 }
 
@@ -758,3 +782,170 @@ function createMockEmailAdapterWithTracking(): EmailAdapter & { calls: { method:
   };
   return adapter;
 }
+
+// ============================================
+// REFRESH TOKEN HANDLER TESTS
+// ============================================
+
+describe('Auth Handlers - Refresh Token', () => {
+  let handlers: ReturnType<typeof createAuthHandlers>;
+  let refreshToken: string;
+
+  beforeEach(async () => {
+    const db = createMockDatabaseAdapter();
+    handlers = createAuthHandlers({
+      auth: createTestConfig(),
+      database: db,
+      email: createMockEmailAdapter(),
+    });
+
+    const registerResponse = await handlers.register({
+      method: 'POST',
+      path: '/register',
+      body: { email: 'test@example.com', password: 'securePassword123' },
+      headers: {},
+    });
+    refreshToken = registerResponse.body.tokens.refreshToken;
+  });
+
+  it('should return 200 with new tokens on valid refresh', async () => {
+    const request: AuthRequest = {
+      method: 'POST',
+      path: '/refresh',
+      body: { refreshToken },
+      headers: {},
+    };
+
+    const response = await handlers.refresh(request);
+
+    expect(response.status).toBe(200);
+    expect(response.body.tokens).toBeDefined();
+    expect(response.body.tokens.accessToken).toBeDefined();
+    expect(response.body.tokens.refreshToken).toBeDefined();
+    expect(response.body.tokens.refreshToken).not.toBe(refreshToken);
+  });
+
+  it('should return 401 on invalid refresh token', async () => {
+    const request: AuthRequest = {
+      method: 'POST',
+      path: '/refresh',
+      body: { refreshToken: 'invalid-token' },
+      headers: {},
+    };
+
+    const response = await handlers.refresh(request);
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBeDefined();
+  });
+
+  it('should return 400 if refresh token not provided', async () => {
+    const request: AuthRequest = {
+      method: 'POST',
+      path: '/refresh',
+      body: {},
+      headers: {},
+    };
+
+    const response = await handlers.refresh(request);
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBeDefined();
+  });
+
+  it('should invalidate old refresh token after use', async () => {
+    // Use the refresh token
+    await handlers.refresh({
+      method: 'POST',
+      path: '/refresh',
+      body: { refreshToken },
+      headers: {},
+    });
+
+    // Try to use the old token again
+    const response = await handlers.refresh({
+      method: 'POST',
+      path: '/refresh',
+      body: { refreshToken },
+      headers: {},
+    });
+
+    expect(response.status).toBe(401);
+  });
+});
+
+// ============================================
+// LOGOUT HANDLER TESTS
+// ============================================
+
+describe('Auth Handlers - Logout', () => {
+  let handlers: ReturnType<typeof createAuthHandlers>;
+  let accessToken: string;
+  let refreshToken: string;
+
+  beforeEach(async () => {
+    const db = createMockDatabaseAdapter();
+    handlers = createAuthHandlers({
+      auth: createTestConfig(),
+      database: db,
+      email: createMockEmailAdapter(),
+    });
+
+    const registerResponse = await handlers.register({
+      method: 'POST',
+      path: '/register',
+      body: { email: 'test@example.com', password: 'securePassword123' },
+      headers: {},
+    });
+    accessToken = registerResponse.body.tokens.accessToken;
+    refreshToken = registerResponse.body.tokens.refreshToken;
+  });
+
+  it('should revoke refresh token on logout', async () => {
+    const request: AuthRequest = {
+      method: 'POST',
+      path: '/logout',
+      body: { refreshToken },
+      headers: { authorization: `Bearer ${accessToken}` },
+    };
+
+    const response = await handlers.logout(request);
+
+    expect(response.status).toBe(200);
+
+    // Verify refresh token is revoked
+    const refreshResponse = await handlers.refresh({
+      method: 'POST',
+      path: '/refresh',
+      body: { refreshToken },
+      headers: {},
+    });
+    expect(refreshResponse.status).toBe(401);
+  });
+
+  it('should return 200 even if no refresh token provided', async () => {
+    const request: AuthRequest = {
+      method: 'POST',
+      path: '/logout',
+      body: {},
+      headers: { authorization: `Bearer ${accessToken}` },
+    };
+
+    const response = await handlers.logout(request);
+
+    expect(response.status).toBe(200);
+  });
+
+  it('should return 401 without auth token', async () => {
+    const request: AuthRequest = {
+      method: 'POST',
+      path: '/logout',
+      body: { refreshToken },
+      headers: {},
+    };
+
+    const response = await handlers.logout(request);
+
+    expect(response.status).toBe(401);
+  });
+});

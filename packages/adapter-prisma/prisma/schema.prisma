@@ -23,6 +23,7 @@ model User {
   transactions        Transaction[]
   verificationTokens  VerificationToken[]
   passwordResetTokens PasswordResetToken[]
+  refreshTokens       RefreshToken[]
 }
 
 model VerificationToken {
@@ -35,6 +36,15 @@ model VerificationToken {
 }
 
 model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RefreshToken {
   id        String   @id @default(uuid())
   token     String   @unique
   userId    String

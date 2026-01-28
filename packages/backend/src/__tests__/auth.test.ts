@@ -17,6 +17,7 @@ function createMockDatabaseAdapter(): DatabaseAdapter {
   const users = new Map<string, User & { passwordHash: string }>();
   const verificationTokens = new Map<string, { userId: string; expiresAt: Date }>();
   const passwordResetTokens = new Map<string, { userId: string; expiresAt: Date }>();
+  const refreshTokens = new Map<string, { userId: string; expiresAt: Date }>();
   let idCounter = 1;
 
   return {
@@ -99,6 +100,27 @@ function createMockDatabaseAdapter(): DatabaseAdapter {
     async clearPasswordResetToken(userId: string): Promise<void> {
       for (const [token, data] of passwordResetTokens) {
         if (data.userId === userId) passwordResetTokens.delete(token);
+      }
+    },
+
+    async createRefreshToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+      refreshTokens.set(token, { userId, expiresAt });
+    },
+
+    async getRefreshToken(token: string): Promise<{ userId: string; expiresAt: Date } | null> {
+      const data = refreshTokens.get(token);
+      if (!data) return null;
+      if (data.expiresAt < new Date()) return null;
+      return data;
+    },
+
+    async deleteRefreshToken(token: string): Promise<void> {
+      refreshTokens.delete(token);
+    },
+
+    async deleteAllRefreshTokens(userId: string): Promise<void> {
+      for (const [token, data] of refreshTokens) {
+        if (data.userId === userId) refreshTokens.delete(token);
       }
     },
 
@@ -754,5 +776,187 @@ describe('AuthService - Change Password', () => {
         newPassword: 'weak',
       })
     ).rejects.toThrow();
+  });
+});
+
+// ============================================
+// REFRESH TOKEN TESTS
+// ============================================
+
+describe('AuthService - Refresh Token Flow', () => {
+  let authService: AuthService;
+  let db: DatabaseAdapter;
+  let email: EmailAdapter & { calls: { method: string; args: unknown[] }[] };
+  let config: AuthConfig;
+
+  beforeEach(() => {
+    db = createMockDatabaseAdapter();
+    email = createMockEmailAdapter();
+    config = createTestConfig({
+      refreshTokenExpiresIn: '7d',
+    });
+    authService = new AuthService({ auth: config, database: db, email });
+  });
+
+  it('should generate refresh token on login', async () => {
+    await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const result = await authService.login({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    expect(result.tokens.refreshToken).toBeDefined();
+    expect(typeof result.tokens.refreshToken).toBe('string');
+  });
+
+  it('should generate refresh token on registration', async () => {
+    const result = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    expect(result.tokens.refreshToken).toBeDefined();
+    expect(typeof result.tokens.refreshToken).toBe('string');
+  });
+
+  it('should refresh access token with valid refresh token', async () => {
+    const registerResult = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const refreshToken = registerResult.tokens.refreshToken!;
+
+    const refreshResult = await authService.refreshAccessToken(refreshToken);
+
+    expect(refreshResult.accessToken).toBeDefined();
+    // New access token should be valid
+    const validation = await authService.validateToken(refreshResult.accessToken);
+    expect(validation.valid).toBe(true);
+    expect(refreshResult.expiresAt.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('should implement token rotation (return new refresh token)', async () => {
+    const registerResult = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const originalRefreshToken = registerResult.tokens.refreshToken!;
+
+    const refreshResult = await authService.refreshAccessToken(originalRefreshToken);
+
+    expect(refreshResult.refreshToken).toBeDefined();
+    expect(refreshResult.refreshToken).not.toBe(originalRefreshToken);
+  });
+
+  it('should invalidate old refresh token after rotation', async () => {
+    const registerResult = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const originalRefreshToken = registerResult.tokens.refreshToken!;
+
+    // Use the refresh token
+    await authService.refreshAccessToken(originalRefreshToken);
+
+    // Old token should no longer work
+    await expect(
+      authService.refreshAccessToken(originalRefreshToken)
+    ).rejects.toThrow();
+  });
+
+  it('should reject expired refresh token', async () => {
+    const shortExpiryConfig = createTestConfig({
+      refreshTokenExpiresIn: '1ms',
+    });
+    authService = new AuthService({ auth: shortExpiryConfig, database: db, email });
+
+    const registerResult = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const refreshToken = registerResult.tokens.refreshToken!;
+
+    // Wait for token to expire
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    await expect(
+      authService.refreshAccessToken(refreshToken)
+    ).rejects.toThrow();
+  });
+
+  it('should reject invalid refresh token', async () => {
+    await expect(
+      authService.refreshAccessToken('invalid-token')
+    ).rejects.toThrow();
+  });
+
+  it('should revoke single refresh token', async () => {
+    const registerResult = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const refreshToken = registerResult.tokens.refreshToken!;
+
+    await authService.revokeRefreshToken(refreshToken);
+
+    await expect(
+      authService.refreshAccessToken(refreshToken)
+    ).rejects.toThrow();
+  });
+
+  it('should revoke all refresh tokens for user', async () => {
+    const registerResult = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const userId = registerResult.user.id;
+
+    // Login again to create another refresh token
+    const loginResult = await authService.login({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const refreshToken1 = registerResult.tokens.refreshToken!;
+    const refreshToken2 = loginResult.tokens.refreshToken!;
+
+    await authService.revokeAllRefreshTokens(userId);
+
+    // Both tokens should be invalid
+    await expect(
+      authService.refreshAccessToken(refreshToken1)
+    ).rejects.toThrow();
+
+    await expect(
+      authService.refreshAccessToken(refreshToken2)
+    ).rejects.toThrow();
+  });
+
+  it('should store refresh token in database on login', async () => {
+    await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const loginResult = await authService.login({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const refreshToken = loginResult.tokens.refreshToken!;
+    const storedToken = await db.getRefreshToken(refreshToken);
+
+    expect(storedToken).not.toBeNull();
+    expect(storedToken?.userId).toBe(loginResult.user.id);
   });
 });

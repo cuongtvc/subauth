@@ -99,12 +99,21 @@ describe('PostgreSQLAdapter - Shared Contract Tests', () => {
       )
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS refresh_tokens (
+        token VARCHAR(255) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at TIMESTAMP NOT NULL
+      )
+    `);
+
     adapter = new PostgreSQLAdapter(config);
   };
 
   const cleanup = async () => {
     await pool.query('DELETE FROM transactions');
     await pool.query('DELETE FROM subscriptions');
+    await pool.query('DELETE FROM refresh_tokens');
     await pool.query('DELETE FROM verification_tokens');
     await pool.query('DELETE FROM password_reset_tokens');
     await pool.query('DELETE FROM users');

@@ -84,7 +84,7 @@ export class AuthService {
     await this.emailAdapter.sendVerificationEmail(email, verificationToken, verifyUrl);
 
     // Generate auth tokens
-    const tokens = this.generateAuthTokens(user.id);
+    const tokens = await this.generateAuthTokens(user.id);
 
     return { user, tokens };
   }
@@ -115,7 +115,7 @@ export class AuthService {
     }
 
     // Generate auth tokens
-    const tokens = this.generateAuthTokens(user.id);
+    const tokens = await this.generateAuthTokens(user.id);
 
     return { user, tokens };
   }
@@ -232,6 +232,34 @@ export class AuthService {
     await this.db.setPasswordHash(userId, newPasswordHash);
   }
 
+  async refreshAccessToken(refreshToken: string): Promise<AuthTokens> {
+    // Validate refresh token exists and is not expired
+    const storedToken = await this.db.getRefreshToken(refreshToken);
+    if (!storedToken) {
+      throw new AuthError('Invalid or expired refresh token', AuthErrorCodes.INVALID_REFRESH_TOKEN, 401);
+    }
+
+    // Get the user
+    const user = await this.db.getUserById(storedToken.userId);
+    if (!user) {
+      throw new AuthError('User not found', AuthErrorCodes.USER_NOT_FOUND, 404);
+    }
+
+    // Delete the old refresh token (token rotation)
+    await this.db.deleteRefreshToken(refreshToken);
+
+    // Generate new tokens
+    return this.generateAuthTokens(user.id);
+  }
+
+  async revokeRefreshToken(token: string): Promise<void> {
+    await this.db.deleteRefreshToken(token);
+  }
+
+  async revokeAllRefreshTokens(userId: string): Promise<void> {
+    await this.db.deleteAllRefreshTokens(userId);
+  }
+
   async validateToken(token: string): Promise<TokenValidationResult> {
     try {
       const decoded = jwt.verify(token, this.config.jwtSecret) as { userId: string };
@@ -249,7 +277,7 @@ export class AuthService {
     return this.db.getUserById(validation.userId);
   }
 
-  private generateAuthTokens(userId: string): AuthTokens {
+  private async generateAuthTokens(userId: string): Promise<AuthTokens> {
     const expiresIn = this.parseExpiresIn(this.config.jwtExpiresIn);
     const expiresAt = new Date(Date.now() + expiresIn);
 
@@ -257,7 +285,16 @@ export class AuthService {
       expiresIn: this.config.jwtExpiresIn as jwt.SignOptions['expiresIn'],
     });
 
-    return { accessToken, expiresAt };
+    // Generate refresh token if configured
+    let refreshToken: string | undefined;
+    if (this.config.refreshTokenExpiresIn) {
+      refreshToken = this.generateToken();
+      const refreshExpiresIn = this.parseExpiresIn(this.config.refreshTokenExpiresIn);
+      const refreshExpiresAt = new Date(Date.now() + refreshExpiresIn);
+      await this.db.createRefreshToken(userId, refreshToken, refreshExpiresAt);
+    }
+
+    return { accessToken, refreshToken, expiresAt };
   }
 
   private generateToken(): string {

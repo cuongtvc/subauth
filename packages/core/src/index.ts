@@ -138,6 +138,12 @@ export interface DatabaseAdapter {
   getUserByPasswordResetToken(token: string): Promise<User | null>;
   clearPasswordResetToken(userId: string): Promise<void>;
 
+  // Refresh token operations
+  createRefreshToken(userId: string, token: string, expiresAt: Date): Promise<void>;
+  getRefreshToken(token: string): Promise<{ userId: string; expiresAt: Date } | null>;
+  deleteRefreshToken(token: string): Promise<void>;
+  deleteAllRefreshTokens(userId: string): Promise<void>;
+
   // Subscription operations
   createSubscription(subscription: Omit<Subscription, 'id' | 'createdAt' | 'updatedAt'>): Promise<Subscription>;
   getSubscriptionByUserId(userId: string): Promise<Subscription | null>;
@@ -291,6 +297,8 @@ export const AuthErrorCodes = {
   INVALID_TOKEN: 'INVALID_TOKEN',
   TOKEN_EXPIRED: 'TOKEN_EXPIRED',
   WEAK_PASSWORD: 'WEAK_PASSWORD',
+  INVALID_REFRESH_TOKEN: 'INVALID_REFRESH_TOKEN',
+  REFRESH_TOKEN_EXPIRED: 'REFRESH_TOKEN_EXPIRED',
 } as const;
 
 export const SubscriptionErrorCodes = {

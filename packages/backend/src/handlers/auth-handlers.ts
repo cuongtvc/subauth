@@ -278,5 +278,65 @@ export function createAuthHandlers(config: AuthHandlersConfig) {
         };
       }
     },
+
+    async refresh(request: AuthRequest): Promise<AuthResponse> {
+      try {
+        const { refreshToken } = request.body as { refreshToken?: string };
+
+        if (!refreshToken) {
+          return {
+            status: 400,
+            body: { error: 'VALIDATION_ERROR', message: 'Refresh token is required' },
+          };
+        }
+
+        const tokens = await authService.refreshAccessToken(refreshToken);
+
+        return {
+          status: 200,
+          body: { tokens },
+        };
+      } catch (error) {
+        if (error instanceof AuthError) {
+          return {
+            status: error.statusCode,
+            body: { error: error.code, message: error.message },
+          };
+        }
+        return {
+          status: 500,
+          body: { error: 'INTERNAL_ERROR', message: 'An unexpected error occurred' },
+        };
+      }
+    },
+
+    async logout(request: AuthRequest): Promise<AuthResponse> {
+      try {
+        const userId = await getUserIdFromToken(request.headers);
+        if (!userId) {
+          return {
+            status: 401,
+            body: { error: 'UNAUTHORIZED', message: 'Authentication required' },
+          };
+        }
+
+        const { refreshToken } = request.body as { refreshToken?: string };
+
+        if (refreshToken) {
+          await authService.revokeRefreshToken(refreshToken);
+        }
+
+        return {
+          status: 200,
+          body: { success: true },
+        };
+      } catch (error) {
+        // Even if revocation fails, return success for logout
+        return {
+          status: 200,
+          body: { success: true },
+        };
+      }
+    },
   };
 }

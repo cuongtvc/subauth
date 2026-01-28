@@ -357,6 +357,44 @@ export class PostgreSQLAdapter extends BaseAdapter {
   }
 
   // ============================================
+  // REFRESH TOKEN OPERATIONS (Protected methods for BaseAdapter)
+  // ============================================
+
+  protected async insertRefreshToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+    const sql = `
+      INSERT INTO refresh_tokens (token, user_id, expires_at)
+      VALUES ($1, $2, $3)
+    `;
+    await this.pool.query(sql, [token, userId, expiresAt]);
+  }
+
+  protected async getRefreshTokenFromTable(token: string): Promise<{ userId: string; expiresAt: Date } | null> {
+    const sql = `
+      SELECT user_id, expires_at
+      FROM refresh_tokens
+      WHERE token = $1 AND expires_at > NOW()
+    `;
+    const result = await this.pool.query<{ user_id: string; expires_at: Date }>(sql, [token]);
+    if (result.rows.length === 0) {
+      return null;
+    }
+    return {
+      userId: String(result.rows[0].user_id),
+      expiresAt: result.rows[0].expires_at,
+    };
+  }
+
+  protected async deleteRefreshTokenFromTable(token: string): Promise<void> {
+    const sql = `DELETE FROM refresh_tokens WHERE token = $1`;
+    await this.pool.query(sql, [token]);
+  }
+
+  protected async deleteAllRefreshTokensByUserId(userId: string): Promise<void> {
+    const sql = `DELETE FROM refresh_tokens WHERE user_id = $1`;
+    await this.pool.query(sql, [userId]);
+  }
+
+  // ============================================
   // SUBSCRIPTION OPERATIONS
   // ============================================
 

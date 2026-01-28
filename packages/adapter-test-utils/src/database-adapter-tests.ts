@@ -299,5 +299,105 @@ export function createDatabaseAdapterTests(options: DatabaseAdapterTestOptions):
         expect(found?.id).toBe(user.id);
       });
     });
+
+    // ============================================
+    // REFRESH TOKEN OPERATIONS
+    // ============================================
+
+    describe('Refresh Token Operations', () => {
+      it('should create refresh token for user', async () => {
+        const user = await adapter.createUser('refresh@example.com', 'hashed');
+        const futureDate = new Date(Date.now() + 7 * 24 * 3600000); // 7 days from now
+
+        await adapter.createRefreshToken(user.id, 'refresh_token_123', futureDate);
+
+        const found = await adapter.getRefreshToken('refresh_token_123');
+        expect(found).not.toBeNull();
+        expect(found?.userId).toBe(user.id);
+      });
+
+      it('should get refresh token with user ID and expiry', async () => {
+        const user = await adapter.createUser('refresh2@example.com', 'hashed');
+        const futureDate = new Date(Date.now() + 7 * 24 * 3600000);
+
+        await adapter.createRefreshToken(user.id, 'refresh_token_456', futureDate);
+
+        const found = await adapter.getRefreshToken('refresh_token_456');
+        expect(found?.userId).toBe(user.id);
+        expect(found?.expiresAt.getTime()).toBeCloseTo(futureDate.getTime(), -3); // within 1 second
+      });
+
+      it('should return null for expired refresh token', async () => {
+        const user = await adapter.createUser('refresh_expired@example.com', 'hashed');
+        // Use 7 days ago to avoid any clock skew issues
+        const pastDate = new Date(Date.now() - 7 * 24 * 3600000);
+
+        await adapter.createRefreshToken(user.id, 'expired_refresh_token', pastDate);
+
+        const found = await adapter.getRefreshToken('expired_refresh_token');
+        expect(found).toBeNull();
+      });
+
+      it('should return null for non-existent refresh token', async () => {
+        const found = await adapter.getRefreshToken('non_existent_token');
+        expect(found).toBeNull();
+      });
+
+      it('should delete refresh token by token value', async () => {
+        const user = await adapter.createUser('refresh_delete@example.com', 'hashed');
+        const futureDate = new Date(Date.now() + 7 * 24 * 3600000);
+
+        await adapter.createRefreshToken(user.id, 'delete_me_token', futureDate);
+
+        // Verify it exists
+        const found = await adapter.getRefreshToken('delete_me_token');
+        expect(found).not.toBeNull();
+
+        // Delete it
+        await adapter.deleteRefreshToken('delete_me_token');
+
+        // Verify it's gone
+        const afterDelete = await adapter.getRefreshToken('delete_me_token');
+        expect(afterDelete).toBeNull();
+      });
+
+      it('should delete all refresh tokens for user', async () => {
+        const user = await adapter.createUser('refresh_all@example.com', 'hashed');
+        const futureDate = new Date(Date.now() + 7 * 24 * 3600000);
+
+        // Create multiple tokens for the same user
+        await adapter.createRefreshToken(user.id, 'token_1', futureDate);
+        await adapter.createRefreshToken(user.id, 'token_2', futureDate);
+        await adapter.createRefreshToken(user.id, 'token_3', futureDate);
+
+        // Verify they exist
+        expect(await adapter.getRefreshToken('token_1')).not.toBeNull();
+        expect(await adapter.getRefreshToken('token_2')).not.toBeNull();
+        expect(await adapter.getRefreshToken('token_3')).not.toBeNull();
+
+        // Delete all
+        await adapter.deleteAllRefreshTokens(user.id);
+
+        // Verify all are gone
+        expect(await adapter.getRefreshToken('token_1')).toBeNull();
+        expect(await adapter.getRefreshToken('token_2')).toBeNull();
+        expect(await adapter.getRefreshToken('token_3')).toBeNull();
+      });
+
+      it('should allow multiple refresh tokens per user', async () => {
+        const user = await adapter.createUser('multi_refresh@example.com', 'hashed');
+        const futureDate = new Date(Date.now() + 7 * 24 * 3600000);
+
+        await adapter.createRefreshToken(user.id, 'multi_token_1', futureDate);
+        await adapter.createRefreshToken(user.id, 'multi_token_2', futureDate);
+
+        // Both should be retrievable
+        const found1 = await adapter.getRefreshToken('multi_token_1');
+        const found2 = await adapter.getRefreshToken('multi_token_2');
+
+        expect(found1?.userId).toBe(user.id);
+        expect(found2?.userId).toBe(user.id);
+      });
+    });
   });
 }
