@@ -21,6 +21,12 @@ export interface AuthServiceConfig {
   database: DatabaseAdapter;
   email: EmailAdapter;
   requireEmailVerification?: boolean;
+  /**
+   * Optional callback to add custom claims to JWT tokens.
+   * Called during login, registration, and token refresh.
+   * Custom claims cannot override the 'userId' claim.
+   */
+  getCustomClaims?: (userId: string) => Promise<Record<string, unknown>>;
 }
 
 export interface TokenValidationResult {
@@ -36,12 +42,14 @@ export class AuthService {
   private db: DatabaseAdapter;
   private emailAdapter: EmailAdapter;
   private requireEmailVerification: boolean;
+  private getCustomClaims?: (userId: string) => Promise<Record<string, unknown>>;
 
   constructor(serviceConfig: AuthServiceConfig) {
     this.config = serviceConfig.auth;
     this.db = serviceConfig.database;
     this.emailAdapter = serviceConfig.email;
     this.requireEmailVerification = serviceConfig.requireEmailVerification ?? false;
+    this.getCustomClaims = serviceConfig.getCustomClaims;
   }
 
   async register(input: RegisterInput): Promise<{ user: User; tokens: AuthTokens }> {
@@ -281,7 +289,30 @@ export class AuthService {
     const expiresIn = this.parseExpiresIn(this.config.jwtExpiresIn);
     const expiresAt = new Date(Date.now() + expiresIn);
 
-    const accessToken = jwt.sign({ userId }, this.config.jwtSecret, {
+    // Get custom claims if callback is provided
+    let customClaims: Record<string, unknown> = {};
+    if (this.getCustomClaims) {
+      customClaims = await this.getCustomClaims(userId);
+    }
+
+    // Get user to include tier and isAdmin if present
+    const user = await this.db.getUserById(userId);
+    const userClaims: Record<string, unknown> = {};
+    if (user?.tier !== undefined) {
+      userClaims.tier = user.tier;
+    }
+    if (user?.isAdmin !== undefined) {
+      userClaims.isAdmin = user.isAdmin;
+    }
+
+    // Build payload: user claims first, then custom claims, then userId (cannot be overridden)
+    const payload = {
+      ...userClaims,
+      ...customClaims,
+      userId, // Always set userId last to prevent override
+    };
+
+    const accessToken = jwt.sign(payload, this.config.jwtSecret, {
       expiresIn: this.config.jwtExpiresIn as jwt.SignOptions['expiresIn'],
     });
 

@@ -960,3 +960,271 @@ describe('AuthService - Refresh Token Flow', () => {
     expect(storedToken?.userId).toBe(loginResult.user.id);
   });
 });
+
+// ============================================
+// CUSTOM JWT CLAIMS TESTS
+// ============================================
+
+describe('AuthService - Custom JWT Claims', () => {
+  let db: DatabaseAdapter;
+  let email: EmailAdapter & { calls: { method: string; args: unknown[] }[] };
+  let config: AuthConfig;
+
+  beforeEach(() => {
+    db = createMockDatabaseAdapter();
+    email = createMockEmailAdapter();
+    config = createTestConfig({
+      refreshTokenExpiresIn: '7d',
+    });
+  });
+
+  it('should include custom claims in access token on registration', async () => {
+    const authService = new AuthService({
+      auth: config,
+      database: db,
+      email,
+      getCustomClaims: async (userId: string) => ({
+        tier: 'PRO',
+        isAdmin: true,
+      }),
+    });
+
+    const result = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    // Decode the token to check claims
+    const decoded = JSON.parse(
+      Buffer.from(result.tokens.accessToken.split('.')[1], 'base64').toString()
+    );
+
+    expect(decoded.tier).toBe('PRO');
+    expect(decoded.isAdmin).toBe(true);
+    expect(decoded.userId).toBe(result.user.id);
+  });
+
+  it('should include custom claims in access token on login', async () => {
+    const authService = new AuthService({
+      auth: config,
+      database: db,
+      email,
+      getCustomClaims: async (userId: string) => ({
+        tier: 'TEAM',
+        isAdmin: false,
+        customField: 'custom-value',
+      }),
+    });
+
+    await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const result = await authService.login({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const decoded = JSON.parse(
+      Buffer.from(result.tokens.accessToken.split('.')[1], 'base64').toString()
+    );
+
+    expect(decoded.tier).toBe('TEAM');
+    expect(decoded.isAdmin).toBe(false);
+    expect(decoded.customField).toBe('custom-value');
+  });
+
+  it('should include custom claims in access token on refresh', async () => {
+    let callCount = 0;
+    const authService = new AuthService({
+      auth: config,
+      database: db,
+      email,
+      getCustomClaims: async (userId: string) => {
+        callCount++;
+        // Return different tier on refresh to prove it's called fresh
+        return {
+          tier: callCount === 1 ? 'FREE' : 'PRO',
+          isAdmin: callCount > 1,
+        };
+      },
+    });
+
+    const registerResult = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const refreshToken = registerResult.tokens.refreshToken!;
+    const refreshResult = await authService.refreshAccessToken(refreshToken);
+
+    const decoded = JSON.parse(
+      Buffer.from(refreshResult.accessToken.split('.')[1], 'base64').toString()
+    );
+
+    // Should have updated claims from second call
+    expect(decoded.tier).toBe('PRO');
+    expect(decoded.isAdmin).toBe(true);
+  });
+
+  it('should work without custom claims callback', async () => {
+    const authService = new AuthService({
+      auth: config,
+      database: db,
+      email,
+      // No getCustomClaims provided
+    });
+
+    const result = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const decoded = JSON.parse(
+      Buffer.from(result.tokens.accessToken.split('.')[1], 'base64').toString()
+    );
+
+    expect(decoded.userId).toBeDefined();
+    expect(decoded.tier).toBeUndefined();
+    expect(decoded.isAdmin).toBeUndefined();
+  });
+
+  it('should not allow custom claims to override userId', async () => {
+    const authService = new AuthService({
+      auth: config,
+      database: db,
+      email,
+      getCustomClaims: async (userId: string) => ({
+        userId: 'hacked-user-id', // Attempt to override
+        tier: 'PRO',
+      }),
+    });
+
+    const result = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const decoded = JSON.parse(
+      Buffer.from(result.tokens.accessToken.split('.')[1], 'base64').toString()
+    );
+
+    // userId should be the real one, not the hacked one
+    expect(decoded.userId).toBe(result.user.id);
+    expect(decoded.userId).not.toBe('hacked-user-id');
+    expect(decoded.tier).toBe('PRO');
+  });
+
+  it('should automatically include tier and isAdmin from user in token', async () => {
+    // Create a mock adapter that returns users with tier and isAdmin
+    const usersWithTier = new Map<string, User & { passwordHash: string; tier?: string; isAdmin?: boolean }>();
+    const verificationTokens = new Map<string, { userId: string; expiresAt: Date }>();
+    const passwordResetTokens = new Map<string, { userId: string; expiresAt: Date }>();
+    const refreshTokens = new Map<string, { userId: string; expiresAt: Date }>();
+    let idCounter = 1;
+
+    const dbWithTier: DatabaseAdapter = {
+      async createUser(email: string, passwordHash: string): Promise<User> {
+        const user = {
+          id: String(idCounter++),
+          email,
+          passwordHash,
+          emailVerified: false,
+          createdAt: new Date(),
+          tier: 'PRO', // Default tier for new users
+          isAdmin: true, // Default isAdmin for new users
+        };
+        usersWithTier.set(user.id, user);
+        return { id: user.id, email: user.email, emailVerified: user.emailVerified, createdAt: user.createdAt, tier: user.tier, isAdmin: user.isAdmin };
+      },
+      async getUserById(id: string): Promise<User | null> {
+        const user = usersWithTier.get(id);
+        if (!user) return null;
+        return { id: user.id, email: user.email, emailVerified: user.emailVerified, createdAt: user.createdAt, tier: user.tier, isAdmin: user.isAdmin };
+      },
+      async getUserByEmail(email: string): Promise<User | null> {
+        const user = Array.from(usersWithTier.values()).find(u => u.email === email);
+        if (!user) return null;
+        return { id: user.id, email: user.email, emailVerified: user.emailVerified, createdAt: user.createdAt, tier: user.tier, isAdmin: user.isAdmin };
+      },
+      async updateUser(id: string, updates: Partial<User>): Promise<User> {
+        const user = usersWithTier.get(id);
+        if (!user) throw new Error('User not found');
+        Object.assign(user, updates);
+        return { id: user.id, email: user.email, emailVerified: user.emailVerified, createdAt: user.createdAt, tier: user.tier, isAdmin: user.isAdmin };
+      },
+      async getPasswordHash(userId: string): Promise<string | null> {
+        return usersWithTier.get(userId)?.passwordHash ?? null;
+      },
+      async setPasswordHash(userId: string, hash: string): Promise<void> {
+        const user = usersWithTier.get(userId);
+        if (user) user.passwordHash = hash;
+      },
+      async setVerificationToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+        for (const [t, d] of verificationTokens) if (d.userId === userId) verificationTokens.delete(t);
+        verificationTokens.set(token, { userId, expiresAt });
+      },
+      async getUserByVerificationToken(token: string): Promise<User | null> {
+        const data = verificationTokens.get(token);
+        if (!data || data.expiresAt < new Date()) return null;
+        return this.getUserById(data.userId);
+      },
+      async clearVerificationToken(userId: string): Promise<void> {
+        for (const [t, d] of verificationTokens) if (d.userId === userId) verificationTokens.delete(t);
+      },
+      async setPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+        passwordResetTokens.set(token, { userId, expiresAt });
+      },
+      async getUserByPasswordResetToken(token: string): Promise<User | null> {
+        const data = passwordResetTokens.get(token);
+        if (!data || data.expiresAt < new Date()) return null;
+        return this.getUserById(data.userId);
+      },
+      async clearPasswordResetToken(userId: string): Promise<void> {
+        for (const [t, d] of passwordResetTokens) if (d.userId === userId) passwordResetTokens.delete(t);
+      },
+      async createRefreshToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+        refreshTokens.set(token, { userId, expiresAt });
+      },
+      async getRefreshToken(token: string): Promise<{ userId: string; expiresAt: Date } | null> {
+        const data = refreshTokens.get(token);
+        if (!data || data.expiresAt < new Date()) return null;
+        return data;
+      },
+      async deleteRefreshToken(token: string): Promise<void> {
+        refreshTokens.delete(token);
+      },
+      async deleteAllRefreshTokens(userId: string): Promise<void> {
+        for (const [t, d] of refreshTokens) if (d.userId === userId) refreshTokens.delete(t);
+      },
+      async createSubscription() { throw new Error('Not implemented'); },
+      async getSubscriptionByUserId() { return null; },
+      async getSubscriptionByProviderId() { return null; },
+      async updateSubscription() { throw new Error('Not implemented'); },
+      async createTransaction() { throw new Error('Not implemented'); },
+      async getTransactionByProviderId() { return null; },
+      async setProviderCustomerId() {},
+      async getUserByProviderCustomerId() { return null; },
+    };
+
+    const authService = new AuthService({
+      auth: config,
+      database: dbWithTier,
+      email,
+    });
+
+    const result = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    const decoded = JSON.parse(
+      Buffer.from(result.tokens.accessToken.split('.')[1], 'base64').toString()
+    );
+
+    expect(decoded.tier).toBe('PRO');
+    expect(decoded.isAdmin).toBe(true);
+    expect(decoded.userId).toBe(result.user.id);
+  });
+});

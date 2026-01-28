@@ -10,6 +10,10 @@ export interface User {
   email: string;
   emailVerified: boolean;
   createdAt: Date;
+  /** Optional user tier (e.g., 'FREE', 'PRO', 'TEAM'). Included in JWT if present. */
+  tier?: string;
+  /** Optional admin flag. Included in JWT if present. */
+  isAdmin?: boolean;
 }
 
 export interface AuthTokens {
