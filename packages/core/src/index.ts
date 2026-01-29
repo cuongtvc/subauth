@@ -22,6 +22,27 @@ export interface AuthTokens {
   expiresAt: Date;
 }
 
+/**
+ * JWT token payload structure.
+ * Contains standard claims plus user information.
+ */
+export interface AuthTokenPayload {
+  /** User ID */
+  userId: string;
+  /** User email */
+  email: string;
+  /** User tier (e.g., 'FREE', 'PRO', 'TEAM') - included if present on user */
+  tier?: string;
+  /** Admin flag - included if present on user */
+  isAdmin?: boolean;
+  /** Token expiration (Unix timestamp) */
+  exp: number;
+  /** Token issued at (Unix timestamp) */
+  iat: number;
+  /** Custom claims added via getCustomClaims */
+  [key: string]: unknown;
+}
+
 export interface RegisterInput {
   email: string;
   password: string;

@@ -21,7 +21,8 @@
     "@subauth/backend": "workspace:*",
     "@subauth/adapter-prisma": "workspace:*",
     "@subauth/adapter-ses": "workspace:*",
-    "@subauth/adapter-paddle": "workspace:*"
+    "@subauth/adapter-paddle": "workspace:*",
+    "jsonwebtoken": "^9.0.0"
   },
   "peerDependencies": {
     "express": "^4.18.0 || ^5.0.0",
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.0",
     "typescript": "^5.3.0"
   }
 }

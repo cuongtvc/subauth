@@ -186,10 +186,16 @@ importers:
       express:
         specifier: ^4.18.0 || ^5.0.0
         version: 5.2.1
+      jsonwebtoken:
+        specifier: ^9.0.0
+        version: 9.0.3
     devDependencies:
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.25
+      '@types/jsonwebtoken':
+        specifier: ^9.0.0
+        version: 9.0.10
       typescript:
         specifier: ^5.3.0
         version: 5.9.3

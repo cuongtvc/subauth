@@ -450,4 +450,11 @@ function asyncHandler(
 // RE-EXPORTS
 // ============================================
 
-export type { Plan, PlanPrice, User, Subscription, AuthTokens } from '@subauth/core';
+export type { Plan, PlanPrice, User, Subscription, AuthTokens, AuthTokenPayload } from '@subauth/core';
+
+// Middleware exports
+export { createAuthMiddleware } from './middleware/auth';
+export type { AuthMiddlewareConfig, AuthMiddleware } from './middleware/auth';
+
+export { createErrorMiddleware } from './middleware/error';
+export type { AppError, ErrorMiddleware } from './middleware/error';
