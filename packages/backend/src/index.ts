@@ -8,8 +8,10 @@ export type { SubscriptionServiceConfig, TrialInfo } from './subscription-servic
 export {
   createAuthHandlers,
   createSubscriptionHandlers,
+  createAdminHandlers,
   type AuthHandlersConfig,
   type SubscriptionHandlersConfig,
+  type AdminHandlersConfig,
   type AuthRequest,
   type AuthResponse,
   type Handler,
