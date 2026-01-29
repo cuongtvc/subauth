@@ -44,6 +44,10 @@ vi.mock('@subauth/backend', () => ({
     resumeSubscription: vi.fn().mockResolvedValue({ status: 200, body: { subscription: {} } }),
     webhook: vi.fn().mockResolvedValue({ status: 200, body: { received: true } }),
   })),
+  createAdminHandlers: vi.fn().mockImplementation(() => ({
+    listUsers: vi.fn().mockResolvedValue({ status: 200, body: { success: true, data: { users: [], pagination: {} } } }),
+    updateUserTier: vi.fn().mockResolvedValue({ status: 200, body: { success: true, data: { user: {} } } }),
+  })),
 }));
 
 // Import after mocks are set up

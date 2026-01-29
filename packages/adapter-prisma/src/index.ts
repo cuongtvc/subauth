@@ -32,6 +32,14 @@ export interface PrismaModels {
     create(args: { data: Record<string, unknown> }): Promise<Record<string, unknown>>;
     findUnique(args: { where: Record<string, unknown>; select?: Record<string, boolean>; include?: Record<string, boolean> }): Promise<Record<string, unknown> | null>;
     findFirst(args: { where: Record<string, unknown> }): Promise<Record<string, unknown> | null>;
+    findMany(args: {
+      where?: Record<string, unknown>;
+      select?: Record<string, boolean>;
+      orderBy?: Record<string, string>;
+      skip?: number;
+      take?: number;
+    }): Promise<Record<string, unknown>[]>;
+    count(args: { where?: Record<string, unknown> }): Promise<number>;
     update(args: { where: Record<string, unknown>; data: Record<string, unknown> }): Promise<Record<string, unknown>>;
   };
   subscription?: {
@@ -76,6 +84,8 @@ export interface FieldMappings {
     passwordHash?: string;
     providerCustomerId?: string;
     createdAt?: string;
+    tier?: string;
+    isAdmin?: string;
     // Token fields if stored on user table
     verificationToken?: string;
     verificationTokenExpires?: string;
@@ -148,6 +158,8 @@ const defaultUserFields = {
   passwordHash: 'passwordHash',
   providerCustomerId: 'providerCustomerId',
   createdAt: 'createdAt',
+  tier: 'tier',
+  isAdmin: 'isAdmin',
   verificationToken: 'verificationToken',
   verificationTokenExpires: 'verificationTokenExpires',
   passwordResetToken: 'passwordResetToken',
@@ -245,12 +257,22 @@ export class PrismaAdapter extends BaseAdapter {
   // ============================================
 
   private mapDbUserToUser(dbUser: Record<string, unknown>): User {
-    return {
+    const user: User = {
       id: String(dbUser[this.userFields.id]),
       email: String(dbUser[this.userFields.email]),
       emailVerified: Boolean(dbUser[this.userFields.emailVerified]),
       createdAt: dbUser[this.userFields.createdAt] as Date,
     };
+
+    // Include optional fields if present
+    if (dbUser[this.userFields.tier] !== undefined && dbUser[this.userFields.tier] !== null) {
+      user.tier = String(dbUser[this.userFields.tier]);
+    }
+    if (dbUser[this.userFields.isAdmin] !== undefined && dbUser[this.userFields.isAdmin] !== null) {
+      user.isAdmin = Boolean(dbUser[this.userFields.isAdmin]);
+    }
+
+    return user;
   }
 
   private mapDbSubscriptionToSubscription(dbSub: Record<string, unknown>): Subscription {
@@ -327,6 +349,12 @@ export class PrismaAdapter extends BaseAdapter {
     if (updates.emailVerified !== undefined) {
       data[this.userFields.emailVerified] = updates.emailVerified;
     }
+    if (updates.tier !== undefined) {
+      data[this.userFields.tier] = updates.tier;
+    }
+    if (updates.isAdmin !== undefined) {
+      data[this.userFields.isAdmin] = updates.isAdmin;
+    }
 
     const dbUser = await this.models.user.update({
       where: { [this.userFields.id]: id },
@@ -334,6 +362,38 @@ export class PrismaAdapter extends BaseAdapter {
     });
 
     return this.mapDbUserToUser(dbUser);
+  }
+
+  async listUsers(options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<{ users: User[]; total: number }> {
+    const { page = 1, limit = 20, search = '' } = options;
+    const skip = (page - 1) * limit;
+
+    const where: Record<string, unknown> = {};
+    if (search) {
+      where[this.userFields.email] = {
+        contains: search,
+        mode: 'insensitive',
+      };
+    }
+
+    const [dbUsers, total] = await Promise.all([
+      this.models.user.findMany({
+        where,
+        orderBy: { [this.userFields.createdAt]: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.models.user.count({ where }),
+    ]);
+
+    return {
+      users: dbUsers.map(dbUser => this.mapDbUserToUser(dbUser)),
+      total,
+    };
   }
 
   // ============================================

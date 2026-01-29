@@ -2,7 +2,7 @@ import { Router, json, raw, Request, Response, NextFunction } from 'express';
 import { PrismaAdapter } from '@subauth/adapter-prisma';
 import { SESEmailAdapter } from '@subauth/adapter-ses';
 import { PaddlePaymentAdapter } from '@subauth/adapter-paddle';
-import { createAuthHandlers, createSubscriptionHandlers } from '@subauth/backend';
+import { createAuthHandlers, createSubscriptionHandlers, createAdminHandlers } from '@subauth/backend';
 import type { Plan } from '@subauth/core';
 
 // ============================================
@@ -104,10 +104,14 @@ export interface SubAuthConfig {
 export interface SubAuthInstance {
   /** Express router with all auth (and optionally subscription) routes mounted */
   router: Router;
+  /** Express router with admin routes (requires authenticate + requireAdmin middleware) */
+  adminRouter: Router;
   /** Direct access to auth handlers if needed */
   authHandlers: ReturnType<typeof createAuthHandlers>;
   /** Direct access to subscription handlers if payment is configured */
   subscriptionHandlers?: ReturnType<typeof createSubscriptionHandlers>;
+  /** Direct access to admin handlers */
+  adminHandlers: ReturnType<typeof createAdminHandlers>;
   /** Database adapter */
   databaseAdapter: PrismaAdapter;
   /** Email adapter */
@@ -217,13 +221,23 @@ export function createSubAuth(config: SubAuthConfig): SubAuthInstance {
     });
   }
 
-  // Create Express router
+  // Create admin handlers
+  const adminHandlers = createAdminHandlers({
+    auth: authConfig,
+    database: databaseAdapter,
+    email: emailAdapter,
+  });
+
+  // Create Express routers
   const router = createRouter(authHandlers, subscriptionHandlers);
+  const adminRouter = createAdminRouter(adminHandlers);
 
   return {
     router,
+    adminRouter,
     authHandlers,
     subscriptionHandlers,
+    adminHandlers,
     databaseAdapter,
     emailAdapter,
     paymentAdapter,
@@ -416,6 +430,48 @@ function createRouter(
       res.status(result.status).json(result.body);
     }));
   }
+
+  return router;
+}
+
+/**
+ * Create admin router.
+ * NOTE: Authentication and admin authorization should be handled by middleware
+ * before these routes (e.g., authenticate + requireAdmin from createAuthMiddleware).
+ */
+function createAdminRouter(
+  adminHandlers: ReturnType<typeof createAdminHandlers>
+): Router {
+  const router = Router();
+
+  // JSON body parser
+  router.use(json());
+
+  // GET /users - List users with pagination and search
+  router.get('/users', asyncHandler(async (req, res) => {
+    const result = await adminHandlers.listUsers({
+      method: 'GET',
+      path: '/admin/users',
+      body: req.body,
+      headers: flattenHeaders(req.headers),
+      params: req.params,
+      query: req.query as Record<string, string>,
+    });
+    res.status(result.status).json(result.body);
+  }));
+
+  // PATCH /users/:userId/tier - Update user tier
+  router.patch('/users/:userId/tier', asyncHandler(async (req, res) => {
+    const result = await adminHandlers.updateUserTier({
+      method: 'PATCH',
+      path: `/admin/users/${req.params.userId}/tier`,
+      body: req.body,
+      headers: flattenHeaders(req.headers),
+      params: req.params,
+      query: req.query as Record<string, string>,
+    });
+    res.status(result.status).json(result.body);
+  }));
 
   return router;
 }

@@ -148,6 +148,12 @@ export interface DatabaseAdapter {
   getUserById(id: string): Promise<User | null>;
   getUserByEmail(email: string): Promise<User | null>;
   updateUser(id: string, updates: Partial<User>): Promise<User>;
+  /** List users with pagination and search (optional, for admin functionality) */
+  listUsers?(options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<{ users: User[]; total: number }>;
 
   // Password operations
   getPasswordHash(userId: string): Promise<string | null>;
@@ -314,6 +320,17 @@ export class SubscriptionError extends Error {
   }
 }
 
+export class AdminError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public statusCode: number = 400
+  ) {
+    super(message);
+    this.name = 'AdminError';
+  }
+}
+
 export const AuthErrorCodes = {
   USER_EXISTS: 'USER_EXISTS',
   INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
@@ -334,4 +351,12 @@ export const SubscriptionErrorCodes = {
   INVALID_PLAN: 'INVALID_PLAN',
   PAYMENT_FAILED: 'PAYMENT_FAILED',
   WEBHOOK_VERIFICATION_FAILED: 'WEBHOOK_VERIFICATION_FAILED',
+} as const;
+
+export const AdminErrorCodes = {
+  FORBIDDEN: 'FORBIDDEN',
+  USER_NOT_FOUND: 'USER_NOT_FOUND',
+  INVALID_TIER: 'INVALID_TIER',
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  LIST_USERS_NOT_SUPPORTED: 'LIST_USERS_NOT_SUPPORTED',
 } as const;
