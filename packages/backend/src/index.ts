@@ -8,14 +8,15 @@ export type { SubscriptionServiceConfig, TrialInfo } from './subscription-servic
 export {
   createAuthHandlers,
   createSubscriptionHandlers,
-  createAdminHandlers,
   type AuthHandlersConfig,
   type SubscriptionHandlersConfig,
-  type AdminHandlersConfig,
   type AuthRequest,
   type AuthResponse,
   type Handler,
 } from './handlers';
+
+// Admin handlers - can be removed when using createSubAuth (which includes adminRouter)
+export { createAdminHandlers, type AdminHandlersConfig } from './handlers';
 
 // Re-export core types for convenience
 export * from '@subauth/core';

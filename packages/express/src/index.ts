@@ -514,3 +514,6 @@ export type { AuthMiddlewareConfig, AuthMiddleware } from './middleware/auth';
 
 export { createErrorMiddleware } from './middleware/error';
 export type { AppError, ErrorMiddleware } from './middleware/error';
+
+// Admin router factory - can be removed when using createSubAuth (which includes adminRouter)
+export { createAdminRouter };
