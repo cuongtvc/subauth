@@ -4,8 +4,8 @@
   "private": true,
   "description": "TypeScript library for auth and subscription management",
   "scripts": {
-    "test": "vitest",
-    "test:run": "vitest run",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck"
