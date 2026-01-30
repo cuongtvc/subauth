@@ -10,6 +10,7 @@ export class AuthClient {
   constructor(config: AuthClientConfig, storage: Storage) {
     this.config = {
       tokenStorageKey: 'auth_token',
+      refreshTokenStorageKey: 'auth_refresh_token',
       userStorageKey: 'auth_user',
       ...config,
     };
@@ -22,6 +23,7 @@ export class AuthClient {
   private loadStateFromStorage(): AuthState {
     try {
       const token = this.storage.getItem(this.config.tokenStorageKey!);
+      const refreshToken = this.storage.getItem(this.config.refreshTokenStorageKey!);
       const userJson = this.storage.getItem(this.config.userStorageKey!);
 
       if (token) {
@@ -36,6 +38,7 @@ export class AuthClient {
         return {
           user,
           token,
+          refreshToken,
           isAuthenticated: true,
           isLoading: false,
         };
@@ -48,18 +51,23 @@ export class AuthClient {
     return {
       user: null,
       token: null,
+      refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
     };
   }
 
-  private saveStateToStorage(user: User, token: string): void {
+  private saveStateToStorage(user: User, token: string, refreshToken?: string): void {
     this.storage.setItem(this.config.tokenStorageKey!, token);
     this.storage.setItem(this.config.userStorageKey!, JSON.stringify(user));
+    if (refreshToken) {
+      this.storage.setItem(this.config.refreshTokenStorageKey!, refreshToken);
+    }
   }
 
   private clearStorage(): void {
     this.storage.removeItem(this.config.tokenStorageKey!);
+    this.storage.removeItem(this.config.refreshTokenStorageKey!);
     this.storage.removeItem(this.config.userStorageKey!);
   }
 
@@ -110,13 +118,19 @@ export class AuthClient {
       };
 
       // Save to storage and update state
-      this.saveStateToStorage(user, tokens.accessToken);
+      this.saveStateToStorage(user, tokens.accessToken, tokens.refreshToken);
       this.setState({
         user,
         token: tokens.accessToken,
+        refreshToken: tokens.refreshToken || null,
         isAuthenticated: true,
         isLoading: false,
       });
+
+      // Call onLoginSuccess callback
+      if (this.config.onLoginSuccess) {
+        await this.config.onLoginSuccess({ user, tokens: parsedTokens });
+      }
 
       return { user, tokens: parsedTokens };
     } catch (error) {
@@ -149,13 +163,19 @@ export class AuthClient {
       };
 
       // Save to storage and update state
-      this.saveStateToStorage(user, tokens.accessToken);
+      this.saveStateToStorage(user, tokens.accessToken, tokens.refreshToken);
       this.setState({
         user,
         token: tokens.accessToken,
+        refreshToken: tokens.refreshToken || null,
         isAuthenticated: true,
         isLoading: false,
       });
+
+      // Call onLoginSuccess callback
+      if (this.config.onLoginSuccess) {
+        await this.config.onLoginSuccess({ user, tokens: parsedTokens });
+      }
 
       return { user, tokens: parsedTokens };
     } catch (error) {
@@ -164,14 +184,72 @@ export class AuthClient {
     }
   }
 
-  logout(): void {
+  async logout(): Promise<void> {
+    // Call logout API with refresh token
+    if (this.state.token) {
+      try {
+        await fetch(`${this.config.baseUrl}/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.state.token}`,
+          },
+          body: JSON.stringify({ refreshToken: this.state.refreshToken }),
+        });
+      } catch {
+        // Ignore logout API errors
+      }
+    }
+
     this.clearStorage();
     this.setState({
       user: null,
       token: null,
+      refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
     });
+
+    // Call onLogoutSuccess callback
+    if (this.config.onLogoutSuccess) {
+      await this.config.onLogoutSuccess();
+    }
+  }
+
+  private async refreshAccessToken(): Promise<boolean> {
+    if (!this.state.refreshToken) {
+      return false;
+    }
+
+    try {
+      const response = await fetch(`${this.config.baseUrl}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: this.state.refreshToken }),
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = await response.json();
+      const { tokens } = data;
+
+      // Update storage and state with new tokens
+      this.storage.setItem(this.config.tokenStorageKey!, tokens.accessToken);
+      if (tokens.refreshToken) {
+        this.storage.setItem(this.config.refreshTokenStorageKey!, tokens.refreshToken);
+      }
+
+      this.setState({
+        token: tokens.accessToken,
+        refreshToken: tokens.refreshToken || this.state.refreshToken,
+      });
+
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async fetchWithAuth(
@@ -180,23 +258,57 @@ export class AuthClient {
   ): Promise<Response> {
     const { skipAuth, ...fetchOptions } = options || {};
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...(fetchOptions.headers as Record<string, string>),
+    const makeRequest = async (token: string | null) => {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(fetchOptions.headers as Record<string, string>),
+      };
+
+      if (!skipAuth && token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      return fetch(`${this.config.baseUrl}${path}`, {
+        ...fetchOptions,
+        headers,
+      });
     };
 
-    if (!skipAuth && this.state.token) {
-      headers['Authorization'] = `Bearer ${this.state.token}`;
-    }
+    let response = await makeRequest(this.state.token);
 
-    const response = await fetch(`${this.config.baseUrl}${path}`, {
-      ...fetchOptions,
-      headers,
-    });
+    // Handle 401 - try to refresh token
+    if (response.status === 401 && this.state.refreshToken) {
+      const refreshed = await this.refreshAccessToken();
 
-    // Handle 401 - token expired
-    if (response.status === 401) {
-      this.logout();
+      if (refreshed) {
+        // Retry with new token
+        response = await makeRequest(this.state.token);
+      } else {
+        // Refresh failed, clear state
+        this.clearStorage();
+        this.setState({
+          user: null,
+          token: null,
+          refreshToken: null,
+          isAuthenticated: false,
+          isLoading: false,
+        });
+
+        if (this.config.onTokenExpired) {
+          this.config.onTokenExpired();
+        }
+      }
+    } else if (response.status === 401) {
+      // No refresh token, just logout
+      this.clearStorage();
+      this.setState({
+        user: null,
+        token: null,
+        refreshToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+
       if (this.config.onTokenExpired) {
         this.config.onTokenExpired();
       }

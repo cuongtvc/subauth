@@ -270,8 +270,10 @@ describe('AuthClient - Logout', () => {
     vi.unstubAllGlobals();
   });
 
-  it('should clear state on logout', () => {
-    client.logout();
+  it('should clear state on logout', async () => {
+    mockFetch.mockReturnValueOnce(mockSuccessResponse({ success: true }));
+
+    await client.logout();
 
     const state = client.getState();
     expect(state.isAuthenticated).toBe(false);
@@ -279,17 +281,19 @@ describe('AuthClient - Logout', () => {
     expect(state.token).toBeNull();
   });
 
-  it('should clear storage on logout', () => {
-    client.logout();
+  it('should clear storage on logout', async () => {
+    mockFetch.mockReturnValueOnce(mockSuccessResponse({ success: true }));
+
+    await client.logout();
 
     expect(storage.getItem('auth_token')).toBeNull();
     expect(storage.getItem('auth_user')).toBeNull();
   });
 
-  it('should work even if not authenticated', () => {
+  it('should work even if not authenticated', async () => {
     const freshClient = new AuthClient(createTestConfig(), createMockStorage());
 
-    expect(() => freshClient.logout()).not.toThrow();
+    await expect(freshClient.logout()).resolves.not.toThrow();
     expect(freshClient.getState().isAuthenticated).toBe(false);
   });
 });
@@ -330,15 +334,17 @@ describe('AuthClient - State Subscriptions', () => {
     expect(lastCall.isAuthenticated).toBe(true);
   });
 
-  it('should notify subscribers on logout', () => {
+  it('should notify subscribers on logout', async () => {
     storage.setItem('auth_token', 'token');
     storage.setItem('auth_user', JSON.stringify({ id: '1', email: 'test@example.com' }));
     client = new AuthClient(createTestConfig(), storage);
 
+    mockFetch.mockReturnValueOnce(mockSuccessResponse({ success: true }));
+
     const listener = vi.fn();
     client.subscribe(listener);
 
-    client.logout();
+    await client.logout();
 
     expect(listener).toHaveBeenCalled();
     const lastCall = listener.mock.calls[listener.mock.calls.length - 1][0] as AuthState;
@@ -588,5 +594,257 @@ describe('AuthClient - Get Current User', () => {
     client = new AuthClient(createTestConfig(), storage);
 
     await expect(client.getCurrentUser()).rejects.toThrow();
+  });
+});
+
+// ============================================
+// AUTH CLIENT - REFRESH TOKEN TESTS
+// ============================================
+
+describe('AuthClient - Refresh Token Support', () => {
+  let client: AuthClient;
+  let storage: Storage;
+  let mockFetch: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    storage = createMockStorage();
+    mockFetch = createMockFetch();
+    vi.stubGlobal('fetch', mockFetch);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('should store refresh token on login', async () => {
+    client = new AuthClient(createTestConfig(), storage);
+
+    mockFetch.mockReturnValueOnce(mockSuccessResponse({
+      user: { id: '1', email: 'test@example.com', emailVerified: true },
+      tokens: {
+        accessToken: 'access_token',
+        refreshToken: 'refresh_token',
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      },
+    }));
+
+    await client.login({ email: 'test@example.com', password: 'password123' });
+
+    expect(client.getState().refreshToken).toBe('refresh_token');
+    expect(storage.getItem('auth_refresh_token')).toBe('refresh_token');
+  });
+
+  it('should restore refresh token from storage on init', () => {
+    storage.setItem('auth_token', 'stored_token');
+    storage.setItem('auth_refresh_token', 'stored_refresh_token');
+    storage.setItem('auth_user', JSON.stringify({ id: '1', email: 'test@example.com' }));
+
+    client = new AuthClient(createTestConfig(), storage);
+    const state = client.getState();
+
+    expect(state.refreshToken).toBe('stored_refresh_token');
+  });
+
+  it('should use custom refresh token storage key', () => {
+    storage.setItem('auth_token', 'token');
+    storage.setItem('custom_refresh', 'my_refresh_token');
+    storage.setItem('auth_user', JSON.stringify({ id: '1', email: 'test@example.com' }));
+
+    client = new AuthClient(
+      createTestConfig({ refreshTokenStorageKey: 'custom_refresh' }),
+      storage
+    );
+
+    expect(client.getState().refreshToken).toBe('my_refresh_token');
+  });
+
+  it('should clear refresh token on logout', async () => {
+    storage.setItem('auth_token', 'token');
+    storage.setItem('auth_refresh_token', 'refresh_token');
+    storage.setItem('auth_user', JSON.stringify({ id: '1', email: 'test@example.com' }));
+    client = new AuthClient(createTestConfig(), storage);
+
+    mockFetch.mockReturnValueOnce(mockSuccessResponse({ success: true }));
+
+    await client.logout();
+
+    expect(client.getState().refreshToken).toBeNull();
+    expect(storage.getItem('auth_refresh_token')).toBeNull();
+  });
+
+  it('should auto-refresh token on 401 response', async () => {
+    storage.setItem('auth_token', 'expired_token');
+    storage.setItem('auth_refresh_token', 'valid_refresh_token');
+    storage.setItem('auth_user', JSON.stringify({ id: '1', email: 'test@example.com' }));
+    client = new AuthClient(createTestConfig(), storage);
+
+    // First call returns 401
+    mockFetch.mockReturnValueOnce(mockErrorResponse(401, { code: 'TOKEN_EXPIRED' }));
+
+    // Refresh token call succeeds
+    mockFetch.mockReturnValueOnce(mockSuccessResponse({
+      tokens: {
+        accessToken: 'new_access_token',
+        refreshToken: 'new_refresh_token',
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      },
+    }));
+
+    // Retry with new token succeeds
+    mockFetch.mockReturnValueOnce(mockSuccessResponse({ data: 'success' }));
+
+    const response = await client.fetchWithAuth('/api/protected');
+    const data = await response.json();
+
+    expect(data.data).toBe('success');
+    expect(client.getState().token).toBe('new_access_token');
+    expect(client.getState().refreshToken).toBe('new_refresh_token');
+  });
+
+  it('should logout if refresh token fails', async () => {
+    storage.setItem('auth_token', 'expired_token');
+    storage.setItem('auth_refresh_token', 'invalid_refresh_token');
+    storage.setItem('auth_user', JSON.stringify({ id: '1', email: 'test@example.com' }));
+    client = new AuthClient(createTestConfig(), storage);
+
+    // First call returns 401
+    mockFetch.mockReturnValueOnce(mockErrorResponse(401, { code: 'TOKEN_EXPIRED' }));
+
+    // Refresh token call fails
+    mockFetch.mockReturnValueOnce(mockErrorResponse(401, { code: 'INVALID_REFRESH_TOKEN' }));
+
+    await client.fetchWithAuth('/api/protected');
+
+    expect(client.getState().isAuthenticated).toBe(false);
+    expect(client.getState().token).toBeNull();
+    expect(client.getState().refreshToken).toBeNull();
+  });
+
+  it('should call logout API with refresh token', async () => {
+    storage.setItem('auth_token', 'token');
+    storage.setItem('auth_refresh_token', 'refresh_token');
+    storage.setItem('auth_user', JSON.stringify({ id: '1', email: 'test@example.com' }));
+    client = new AuthClient(createTestConfig(), storage);
+
+    mockFetch.mockReturnValueOnce(mockSuccessResponse({ success: true }));
+
+    await client.logout();
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:3000/auth/logout',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Authorization': 'Bearer token',
+        }),
+        body: JSON.stringify({ refreshToken: 'refresh_token' }),
+      })
+    );
+  });
+});
+
+// ============================================
+// AUTH CLIENT - CALLBACK TESTS
+// ============================================
+
+describe('AuthClient - Callbacks', () => {
+  let storage: Storage;
+  let mockFetch: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    storage = createMockStorage();
+    mockFetch = createMockFetch();
+    vi.stubGlobal('fetch', mockFetch);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('should call onLoginSuccess callback after successful login', async () => {
+    const onLoginSuccess = vi.fn();
+    const client = new AuthClient(createTestConfig({ onLoginSuccess }), storage);
+
+    const mockUser = { id: '1', email: 'test@example.com', emailVerified: true };
+    const mockTokens = {
+      accessToken: 'access_token',
+      refreshToken: 'refresh_token',
+      expiresAt: new Date(Date.now() + 86400000).toISOString(),
+    };
+
+    mockFetch.mockReturnValueOnce(mockSuccessResponse({
+      user: mockUser,
+      tokens: mockTokens,
+    }));
+
+    await client.login({ email: 'test@example.com', password: 'password123' });
+
+    expect(onLoginSuccess).toHaveBeenCalledWith({
+      user: mockUser,
+      tokens: expect.objectContaining({
+        accessToken: 'access_token',
+        refreshToken: 'refresh_token',
+      }),
+    });
+  });
+
+  it('should call onLoginSuccess callback after successful register', async () => {
+    const onLoginSuccess = vi.fn();
+    const client = new AuthClient(createTestConfig({ onLoginSuccess }), storage);
+
+    mockFetch.mockReturnValueOnce(mockSuccessResponse({
+      user: { id: '1', email: 'test@example.com', emailVerified: false },
+      tokens: {
+        accessToken: 'access_token',
+        refreshToken: 'refresh_token',
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      },
+    }));
+
+    await client.register({ email: 'test@example.com', password: 'password123' });
+
+    expect(onLoginSuccess).toHaveBeenCalled();
+  });
+
+  it('should not call onLoginSuccess callback on failed login', async () => {
+    const onLoginSuccess = vi.fn();
+    const client = new AuthClient(createTestConfig({ onLoginSuccess }), storage);
+
+    mockFetch.mockReturnValueOnce(mockErrorResponse(401, { code: 'INVALID_CREDENTIALS' }));
+
+    try {
+      await client.login({ email: 'test@example.com', password: 'wrong' });
+    } catch {}
+
+    expect(onLoginSuccess).not.toHaveBeenCalled();
+  });
+
+  it('should call onLogoutSuccess callback after logout', async () => {
+    const onLogoutSuccess = vi.fn();
+    storage.setItem('auth_token', 'token');
+    storage.setItem('auth_refresh_token', 'refresh_token');
+    storage.setItem('auth_user', JSON.stringify({ id: '1', email: 'test@example.com' }));
+
+    const client = new AuthClient(createTestConfig({ onLogoutSuccess }), storage);
+
+    mockFetch.mockReturnValueOnce(mockSuccessResponse({ success: true }));
+
+    await client.logout();
+
+    expect(onLogoutSuccess).toHaveBeenCalled();
+  });
+
+  it('should call onLogoutSuccess even if logout API fails', async () => {
+    const onLogoutSuccess = vi.fn();
+    storage.setItem('auth_token', 'token');
+    storage.setItem('auth_user', JSON.stringify({ id: '1', email: 'test@example.com' }));
+
+    const client = new AuthClient(createTestConfig({ onLogoutSuccess }), storage);
+
+    mockFetch.mockReturnValueOnce(mockErrorResponse(500, { error: 'Server error' }));
+
+    await client.logout();
+
+    expect(onLogoutSuccess).toHaveBeenCalled();
   });
 });
