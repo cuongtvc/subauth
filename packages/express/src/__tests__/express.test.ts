@@ -51,7 +51,7 @@ vi.mock('@subauth/backend', () => ({
 }));
 
 // Import after mocks are set up
-import { createSubAuth } from '../index';
+import { createSubAuth, createAuthRouter } from '../index';
 import type { SubAuthConfig } from '../index';
 import { PrismaAdapter } from '@subauth/adapter-prisma';
 import { SESEmailAdapter } from '@subauth/adapter-ses';
@@ -305,23 +305,98 @@ describe('SubAuth Express Router', () => {
 // ============================================
 
 /**
- * Extract route paths from Express router for testing
+ * Extract route paths from Express router for testing.
+ * Recursively traverses mounted sub-routers.
  */
-function getRouterPaths(router: any): string[] {
+function getRouterPaths(router: any, basePath: string = ''): string[] {
   const paths: string[] = [];
 
   if (router.stack) {
     for (const layer of router.stack) {
       if (layer.route) {
+        // Direct route
         const methods = Object.keys(layer.route.methods)
           .filter(m => layer.route.methods[m])
           .map(m => m.toUpperCase());
         for (const method of methods) {
-          paths.push(`${method} ${layer.route.path}`);
+          const fullPath = basePath + layer.route.path;
+          paths.push(`${method} ${fullPath}`);
         }
+      } else if (layer.name === 'router' && layer.handle?.stack) {
+        // Mounted sub-router - recursively extract paths
+        const mountPath = layer.regexp?.source === '^\\/?$' ? '' : (layer.path || '');
+        const subPaths = getRouterPaths(layer.handle, basePath + mountPath);
+        paths.push(...subPaths);
       }
     }
   }
 
   return paths;
 }
+
+// ============================================
+// TESTS: createAuthRouter factory function
+// ============================================
+
+describe('createAuthRouter', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should be exported from the module', () => {
+    expect(createAuthRouter).toBeDefined();
+    expect(typeof createAuthRouter).toBe('function');
+  });
+
+  it('should return an Express router', () => {
+    const mockAuthHandlers = (createAuthHandlers as ReturnType<typeof vi.fn>).mock.results[0]?.value
+      ?? (createAuthHandlers as any)();
+
+    const router = createAuthRouter(mockAuthHandlers);
+
+    expect(typeof router).toBe('function');
+  });
+
+  it('should have all auth routes registered', () => {
+    const mockAuthHandlers = (createAuthHandlers as ReturnType<typeof vi.fn>).mock.results[0]?.value
+      ?? (createAuthHandlers as any)();
+
+    const router = createAuthRouter(mockAuthHandlers);
+    const routes = getRouterPaths(router);
+
+    expect(routes).toContain('POST /register');
+    expect(routes).toContain('POST /login');
+    expect(routes).toContain('POST /logout');
+    expect(routes).toContain('POST /refresh');
+    expect(routes).toContain('GET /me');
+    expect(routes).toContain('POST /verify-email/:token');
+    expect(routes).toContain('POST /resend-verification');
+    expect(routes).toContain('POST /forgot-password');
+    expect(routes).toContain('POST /reset-password');
+    expect(routes).toContain('POST /change-password');
+  });
+
+  it('should NOT have subscription routes', () => {
+    const mockAuthHandlers = (createAuthHandlers as ReturnType<typeof vi.fn>).mock.results[0]?.value
+      ?? (createAuthHandlers as any)();
+
+    const router = createAuthRouter(mockAuthHandlers);
+    const routes = getRouterPaths(router);
+
+    expect(routes).not.toContain('GET /plans');
+    expect(routes).not.toContain('POST /checkout');
+    expect(routes).not.toContain('GET /subscription');
+    expect(routes).not.toContain('POST /webhook');
+  });
+
+  it('should NOT have admin routes', () => {
+    const mockAuthHandlers = (createAuthHandlers as ReturnType<typeof vi.fn>).mock.results[0]?.value
+      ?? (createAuthHandlers as any)();
+
+    const router = createAuthRouter(mockAuthHandlers);
+    const routes = getRouterPaths(router);
+
+    expect(routes).not.toContain('GET /users');
+    expect(routes).not.toContain('PATCH /users/:userId/tier');
+  });
+});

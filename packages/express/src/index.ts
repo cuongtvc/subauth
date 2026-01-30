@@ -248,22 +248,36 @@ export function createSubAuth(config: SubAuthConfig): SubAuthInstance {
 // ROUTER CREATION
 // ============================================
 
-function createRouter(
-  authHandlers: ReturnType<typeof createAuthHandlers>,
-  subscriptionHandlers?: ReturnType<typeof createSubscriptionHandlers>
+/**
+ * Create auth router with all authentication routes.
+ * Use this when you want to mount auth routes separately and handle
+ * middleware yourself, similar to createAdminRouter.
+ *
+ * @example
+ * ```typescript
+ * import { Router } from 'express';
+ * import { createAuthRouter } from '@subauth/express';
+ * import { authHandlers } from './lib/subauth';
+ *
+ * const router = Router();
+ * router.use('/', createAuthRouter(authHandlers));
+ *
+ * export { router as authRouter };
+ * ```
+ */
+function createAuthRouter(
+  authHandlers: ReturnType<typeof createAuthHandlers>
 ): Router {
   const router = Router();
 
-  // JSON body parser for most routes
+  // JSON body parser
   router.use(json());
-
-  // ============================================
-  // AUTH ROUTES
-  // ============================================
 
   // POST /register
   router.post('/register', asyncHandler(async (req, res) => {
     const result = await authHandlers.register({
+      method: req.method,
+      path: req.path,
       body: req.body,
       headers: flattenHeaders(req.headers),
       params: req.params,
@@ -274,6 +288,8 @@ function createRouter(
   // POST /login
   router.post('/login', asyncHandler(async (req, res) => {
     const result = await authHandlers.login({
+      method: req.method,
+      path: req.path,
       body: req.body,
       headers: flattenHeaders(req.headers),
       params: req.params,
@@ -284,6 +300,8 @@ function createRouter(
   // POST /logout
   router.post('/logout', asyncHandler(async (req, res) => {
     const result = await authHandlers.logout({
+      method: req.method,
+      path: req.path,
       body: req.body,
       headers: flattenHeaders(req.headers),
       params: req.params,
@@ -294,6 +312,8 @@ function createRouter(
   // POST /refresh
   router.post('/refresh', asyncHandler(async (req, res) => {
     const result = await authHandlers.refresh({
+      method: req.method,
+      path: req.path,
       body: req.body,
       headers: flattenHeaders(req.headers),
       params: req.params,
@@ -304,6 +324,8 @@ function createRouter(
   // GET /me
   router.get('/me', asyncHandler(async (req, res) => {
     const result = await authHandlers.getMe({
+      method: req.method,
+      path: req.path,
       body: req.body,
       headers: flattenHeaders(req.headers),
       params: req.params,
@@ -314,6 +336,8 @@ function createRouter(
   // POST /verify-email/:token
   router.post('/verify-email/:token', asyncHandler(async (req, res) => {
     const result = await authHandlers.verifyEmail({
+      method: req.method,
+      path: req.path,
       body: req.body,
       headers: flattenHeaders(req.headers),
       params: req.params,
@@ -324,6 +348,8 @@ function createRouter(
   // POST /resend-verification
   router.post('/resend-verification', asyncHandler(async (req, res) => {
     const result = await authHandlers.resendVerification({
+      method: req.method,
+      path: req.path,
       body: req.body,
       headers: flattenHeaders(req.headers),
       params: req.params,
@@ -334,6 +360,8 @@ function createRouter(
   // POST /forgot-password
   router.post('/forgot-password', asyncHandler(async (req, res) => {
     const result = await authHandlers.forgotPassword({
+      method: req.method,
+      path: req.path,
       body: req.body,
       headers: flattenHeaders(req.headers),
       params: req.params,
@@ -344,6 +372,8 @@ function createRouter(
   // POST /reset-password
   router.post('/reset-password', asyncHandler(async (req, res) => {
     const result = await authHandlers.resetPassword({
+      method: req.method,
+      path: req.path,
       body: req.body,
       headers: flattenHeaders(req.headers),
       params: req.params,
@@ -354,12 +384,30 @@ function createRouter(
   // POST /change-password
   router.post('/change-password', asyncHandler(async (req, res) => {
     const result = await authHandlers.changePassword({
+      method: req.method,
+      path: req.path,
       body: req.body,
       headers: flattenHeaders(req.headers),
       params: req.params,
     });
     res.status(result.status).json(result.body);
   }));
+
+  return router;
+}
+
+/**
+ * Create combined router with auth routes and optional subscription routes.
+ * Used internally by createSubAuth.
+ */
+function createRouter(
+  authHandlers: ReturnType<typeof createAuthHandlers>,
+  subscriptionHandlers?: ReturnType<typeof createSubscriptionHandlers>
+): Router {
+  const router = Router();
+
+  // Mount auth routes
+  router.use('/', createAuthRouter(authHandlers));
 
   // ============================================
   // SUBSCRIPTION ROUTES (if configured)
@@ -369,6 +417,8 @@ function createRouter(
     // GET /plans
     router.get('/plans', asyncHandler(async (req, res) => {
       const result = await subscriptionHandlers.getPlans({
+        method: req.method,
+        path: req.path,
         body: req.body,
         headers: flattenHeaders(req.headers),
         params: req.params,
@@ -379,6 +429,8 @@ function createRouter(
     // POST /checkout
     router.post('/checkout', asyncHandler(async (req, res) => {
       const result = await subscriptionHandlers.createCheckout({
+        method: req.method,
+        path: req.path,
         body: req.body,
         headers: flattenHeaders(req.headers),
         params: req.params,
@@ -389,6 +441,8 @@ function createRouter(
     // GET /subscription
     router.get('/subscription', asyncHandler(async (req, res) => {
       const result = await subscriptionHandlers.getSubscription({
+        method: req.method,
+        path: req.path,
         body: req.body,
         headers: flattenHeaders(req.headers),
         params: req.params,
@@ -399,6 +453,8 @@ function createRouter(
     // POST /subscription/cancel
     router.post('/subscription/cancel', asyncHandler(async (req, res) => {
       const result = await subscriptionHandlers.cancelSubscription({
+        method: req.method,
+        path: req.path,
         body: req.body,
         headers: flattenHeaders(req.headers),
         params: req.params,
@@ -409,6 +465,8 @@ function createRouter(
     // POST /subscription/resume
     router.post('/subscription/resume', asyncHandler(async (req, res) => {
       const result = await subscriptionHandlers.resumeSubscription({
+        method: req.method,
+        path: req.path,
         body: req.body,
         headers: flattenHeaders(req.headers),
         params: req.params,
@@ -421,6 +479,8 @@ function createRouter(
       const rawBody = req.body as Buffer;
       const result = await subscriptionHandlers.webhook(
         {
+          method: req.method,
+          path: req.path,
           body: JSON.parse(rawBody.toString()),
           headers: flattenHeaders(req.headers),
           params: req.params,
@@ -515,5 +575,6 @@ export type { AuthMiddlewareConfig, AuthMiddleware } from './middleware/auth';
 export { createErrorMiddleware } from './middleware/error';
 export type { AppError, ErrorMiddleware } from './middleware/error';
 
-// Admin router factory - can be removed when using createSubAuth (which includes adminRouter)
-export { createAdminRouter };
+// Router factory exports - useful when you want to mount routes separately
+// Can be omitted when using createSubAuth (which includes routers)
+export { createAuthRouter, createAdminRouter };
