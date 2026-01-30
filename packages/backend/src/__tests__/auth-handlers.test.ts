@@ -784,6 +784,154 @@ function createMockEmailAdapterWithTracking(): EmailAdapter & { calls: { method:
 }
 
 // ============================================
+// JWT CLAIMS TESTS
+// ============================================
+
+describe('Auth Handlers - JWT Claims', () => {
+  let handlers: ReturnType<typeof createAuthHandlers>;
+  let db: DatabaseAdapter;
+
+  beforeEach(() => {
+    db = createMockDatabaseAdapter();
+    handlers = createAuthHandlers({
+      auth: createTestConfig(),
+      database: db,
+      email: createMockEmailAdapter(),
+    });
+  });
+
+  it('should include email in access token JWT claims on register', async () => {
+    const response = await handlers.register({
+      method: 'POST',
+      path: '/register',
+      body: { email: 'test@example.com', password: 'securePassword123' },
+      headers: {},
+    });
+
+    expect(response.status).toBe(201);
+
+    // Decode the JWT and verify email is in the claims
+    const jwt = await import('jsonwebtoken');
+    const decoded = jwt.default.decode(response.body.tokens.accessToken as string) as { email?: string };
+    expect(decoded.email).toBe('test@example.com');
+  });
+
+  it('should include email in access token JWT claims on login', async () => {
+    // Register first
+    await handlers.register({
+      method: 'POST',
+      path: '/register',
+      body: { email: 'test@example.com', password: 'securePassword123' },
+      headers: {},
+    });
+
+    // Login
+    const response = await handlers.login({
+      method: 'POST',
+      path: '/login',
+      body: { email: 'test@example.com', password: 'securePassword123' },
+      headers: {},
+    });
+
+    expect(response.status).toBe(200);
+
+    // Decode the JWT and verify email is in the claims
+    const jwt = await import('jsonwebtoken');
+    const decoded = jwt.default.decode(response.body.tokens.accessToken as string) as { email?: string };
+    expect(decoded.email).toBe('test@example.com');
+  });
+
+  it('should include email in access token JWT claims on refresh', async () => {
+    // Register first
+    const registerResponse = await handlers.register({
+      method: 'POST',
+      path: '/register',
+      body: { email: 'test@example.com', password: 'securePassword123' },
+      headers: {},
+    });
+
+    // Refresh
+    const response = await handlers.refresh({
+      method: 'POST',
+      path: '/refresh',
+      body: { refreshToken: registerResponse.body.tokens.refreshToken },
+      headers: {},
+    });
+
+    expect(response.status).toBe(200);
+
+    // Decode the JWT and verify email is in the claims
+    const jwt = await import('jsonwebtoken');
+    const decoded = jwt.default.decode(response.body.tokens.accessToken as string) as { email?: string };
+    expect(decoded.email).toBe('test@example.com');
+  });
+
+  it('should include tier in access token JWT claims when user has tier', async () => {
+    // Create a mock adapter that returns tier
+    const mockDbWithTier = createMockDatabaseAdapter();
+    const originalGetUserById = mockDbWithTier.getUserById.bind(mockDbWithTier);
+    mockDbWithTier.getUserById = async (id: string) => {
+      const user = await originalGetUserById(id);
+      if (user) {
+        return { ...user, tier: 'PRO' };
+      }
+      return null;
+    };
+
+    const handlersWithTier = createAuthHandlers({
+      auth: createTestConfig(),
+      database: mockDbWithTier,
+      email: createMockEmailAdapter(),
+    });
+
+    const response = await handlersWithTier.register({
+      method: 'POST',
+      path: '/register',
+      body: { email: 'test@example.com', password: 'securePassword123' },
+      headers: {},
+    });
+
+    expect(response.status).toBe(201);
+
+    const jwt = await import('jsonwebtoken');
+    const decoded = jwt.default.decode(response.body.tokens.accessToken as string) as { tier?: string };
+    expect(decoded.tier).toBe('PRO');
+  });
+
+  it('should include isAdmin in access token JWT claims when user is admin', async () => {
+    // Create a mock adapter that returns isAdmin
+    const mockDbWithAdmin = createMockDatabaseAdapter();
+    const originalGetUserById = mockDbWithAdmin.getUserById.bind(mockDbWithAdmin);
+    mockDbWithAdmin.getUserById = async (id: string) => {
+      const user = await originalGetUserById(id);
+      if (user) {
+        return { ...user, isAdmin: true };
+      }
+      return null;
+    };
+
+    const handlersWithAdmin = createAuthHandlers({
+      auth: createTestConfig(),
+      database: mockDbWithAdmin,
+      email: createMockEmailAdapter(),
+    });
+
+    const response = await handlersWithAdmin.register({
+      method: 'POST',
+      path: '/register',
+      body: { email: 'test@example.com', password: 'securePassword123' },
+      headers: {},
+    });
+
+    expect(response.status).toBe(201);
+
+    const jwt = await import('jsonwebtoken');
+    const decoded = jwt.default.decode(response.body.tokens.accessToken as string) as { isAdmin?: boolean };
+    expect(decoded.isAdmin).toBe(true);
+  });
+});
+
+// ============================================
 // REFRESH TOKEN HANDLER TESTS
 // ============================================
 

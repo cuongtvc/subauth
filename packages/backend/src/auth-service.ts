@@ -295,9 +295,12 @@ export class AuthService {
       customClaims = await this.getCustomClaims(userId);
     }
 
-    // Get user to include tier and isAdmin if present
+    // Get user to include email, tier, and isAdmin in JWT
     const user = await this.db.getUserById(userId);
     const userClaims: Record<string, unknown> = {};
+    if (user?.email) {
+      userClaims.email = user.email;
+    }
     if (user?.tier !== undefined) {
       userClaims.tier = user.tier;
     }
