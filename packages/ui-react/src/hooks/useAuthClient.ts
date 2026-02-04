@@ -6,6 +6,7 @@ export interface UseAuthClientOptions extends AuthClientConfig {
 }
 
 export interface UseAuthClientReturn {
+  client: AuthClient;
   state: AuthState;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
@@ -146,6 +147,7 @@ export function useAuthClient(options: UseAuthClientOptions): UseAuthClientRetur
   }, [client]);
 
   return {
+    client,
     state,
     login,
     register,

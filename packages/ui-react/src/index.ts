@@ -63,5 +63,10 @@ export type { FeatureListProps } from './subscription/FeatureList';
 
 // Hooks
 export { useAuthClient } from './hooks/useAuthClient';
+export type { UseAuthClientOptions, UseAuthClientReturn } from './hooks/useAuthClient';
 export { useAuthClientLoading } from './hooks/useAuthClientLoading';
 export { useSubscriptionClient } from './hooks/useSubscriptionClient';
+
+// Auth Provider
+export { AuthProvider, useAuth } from './hooks/AuthProvider';
+export type { AuthProviderProps } from './hooks/AuthProvider';
