@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { validateEmail, validatePassword, validateMatch, cn } from '@subauth/ui-core';
+import type { AuthClient } from '@subauth/client';
 import { FormField } from '../primitives/FormField';
 import { Button } from '../primitives/Button';
 import { Alert } from '../primitives/Alert';
 
 export interface RegisterFormProps {
-  onSubmit: (data: { email: string; password: string; name?: string }) => void | Promise<void>;
+  onSubmit?: (data: { email: string; password: string; name?: string }) => void | Promise<void>;
+  authClient?: AuthClient;
   loading?: boolean;
   error?: string;
   onSignIn?: () => void;
@@ -14,7 +16,8 @@ export interface RegisterFormProps {
 }
 
 export function RegisterForm({
-  onSubmit,
+  onSubmit: onSubmitProp,
+  authClient,
   loading = false,
   error,
   onSignIn,
@@ -58,7 +61,11 @@ export function RegisterForm({
     }
 
     setErrors({});
-    await onSubmit({ email, password, name: showNameField ? name : undefined });
+    if (onSubmitProp) {
+      await onSubmitProp({ email, password, name: showNameField ? name : undefined });
+    } else if (authClient) {
+      await authClient.register({ email, password });
+    }
   };
 
   return (

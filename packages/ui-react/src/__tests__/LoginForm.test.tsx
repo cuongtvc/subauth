@@ -2,6 +2,12 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LoginForm } from '../auth/LoginForm';
+import { AuthClient } from '@subauth/client';
+
+// Mock AuthClient
+vi.mock('@subauth/client', () => ({
+  AuthClient: vi.fn(),
+}));
 
 describe('LoginForm', () => {
   it('should render email and password fields', () => {
@@ -97,5 +103,26 @@ describe('LoginForm', () => {
     await user.click(screen.getByText(/resend verification/i));
 
     expect(onResendVerification).toHaveBeenCalled();
+  });
+
+  it('should use authClient.login as default onSubmit when authClient is provided', async () => {
+    const mockLogin = vi.fn().mockResolvedValue({ user: {}, tokens: {} });
+    const mockAuthClient = {
+      login: mockLogin,
+    } as unknown as AuthClient;
+
+    render(<LoginForm authClient={mockAuthClient} />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(mockLogin).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: 'password123',
+      });
+    });
   });
 });

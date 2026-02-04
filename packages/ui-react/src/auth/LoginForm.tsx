@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { validateEmail, validateRequired, cn } from '@subauth/ui-core';
+import type { AuthClient } from '@subauth/client';
 import { FormField } from '../primitives/FormField';
 import { Button } from '../primitives/Button';
 import { Alert } from '../primitives/Alert';
 
 export interface LoginFormProps {
-  onSubmit: (data: { email: string; password: string }) => void | Promise<void>;
+  onSubmit?: (data: { email: string; password: string }) => void | Promise<void>;
+  authClient?: AuthClient;
   loading?: boolean;
   error?: string;
   onForgotPassword?: () => void;
@@ -15,7 +17,8 @@ export interface LoginFormProps {
 }
 
 export function LoginForm({
-  onSubmit,
+  onSubmit: onSubmitProp,
+  authClient,
   loading = false,
   error,
   onForgotPassword,
@@ -48,7 +51,11 @@ export function LoginForm({
     }
 
     setErrors({});
-    await onSubmit({ email, password });
+    if (onSubmitProp) {
+      await onSubmitProp({ email, password });
+    } else if (authClient) {
+      await authClient.login({ email, password });
+    }
   };
 
   return (
