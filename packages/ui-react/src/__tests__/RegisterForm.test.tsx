@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RegisterForm } from '../auth/RegisterForm';
-import { AuthClient } from '@subauth/client';
+import { AuthClient, RegisterResult } from '@subauth/client';
 
 // Mock AuthClient
 vi.mock('@subauth/client', () => ({
@@ -44,7 +44,11 @@ describe('RegisterForm', () => {
   });
 
   it('should use authClient.register as default onSubmit when authClient is provided', async () => {
-    const mockRegister = vi.fn().mockResolvedValue({ user: {}, tokens: {} });
+    const mockRegisterResult: RegisterResult = {
+      message: 'Registration successful. Please check your email.',
+      requiresEmailVerification: true,
+    };
+    const mockRegister = vi.fn().mockResolvedValue(mockRegisterResult);
     const mockAuthClient = {
       register: mockRegister,
       getState: vi.fn().mockReturnValue({ isLoading: false }),
@@ -64,6 +68,83 @@ describe('RegisterForm', () => {
         email: 'test@example.com',
         password: 'Password123',
       });
+    });
+  });
+
+  it('should call onSuccess with RegisterResult when registration succeeds via authClient', async () => {
+    const mockRegisterResult: RegisterResult = {
+      message: 'Registration successful. Please check your email.',
+      requiresEmailVerification: true,
+    };
+    const mockRegister = vi.fn().mockResolvedValue(mockRegisterResult);
+    const mockOnSuccess = vi.fn();
+    const mockAuthClient = {
+      register: mockRegister,
+      getState: vi.fn().mockReturnValue({ isLoading: false }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<RegisterForm authClient={mockAuthClient} onSuccess={mockOnSuccess} />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'Password123');
+    await user.type(screen.getByLabelText(/confirm password/i), 'Password123');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    await waitFor(() => {
+      expect(mockOnSuccess).toHaveBeenCalledWith(mockRegisterResult);
+    });
+  });
+
+  it('should show success message when registration succeeds and no onSuccess provided', async () => {
+    const mockRegisterResult: RegisterResult = {
+      message: 'Registration successful. Please check your email to verify your account.',
+      requiresEmailVerification: true,
+    };
+    const mockRegister = vi.fn().mockResolvedValue(mockRegisterResult);
+    const mockAuthClient = {
+      register: mockRegister,
+      getState: vi.fn().mockReturnValue({ isLoading: false }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<RegisterForm authClient={mockAuthClient} />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'Password123');
+    await user.type(screen.getByLabelText(/confirm password/i), 'Password123');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/please check your email/i)).toBeInTheDocument();
+    });
+  });
+
+  it('should hide form fields after successful registration when showing success message', async () => {
+    const mockRegisterResult: RegisterResult = {
+      message: 'Registration successful.',
+      requiresEmailVerification: true,
+    };
+    const mockRegister = vi.fn().mockResolvedValue(mockRegisterResult);
+    const mockAuthClient = {
+      register: mockRegister,
+      getState: vi.fn().mockReturnValue({ isLoading: false }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<RegisterForm authClient={mockAuthClient} />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'Password123');
+    await user.type(screen.getByLabelText(/confirm password/i), 'Password123');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/^password$/i)).not.toBeInTheDocument();
     });
   });
 

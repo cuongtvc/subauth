@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { validateEmail, validatePassword, validateMatch, cn } from '@subauth/ui-core';
-import type { AuthClient } from '@subauth/client';
+import type { AuthClient, RegisterResult } from '@subauth/client';
 import { FormField } from '../primitives/FormField';
 import { Button } from '../primitives/Button';
 import { Alert } from '../primitives/Alert';
@@ -9,6 +9,7 @@ import { useAuthClientLoading } from '../hooks/useAuthClientLoading';
 export interface RegisterFormProps {
   onSubmit?: (data: { email: string; password: string; name?: string }) => void | Promise<void>;
   authClient?: AuthClient;
+  onSuccess?: (result: RegisterResult) => void | Promise<void>;
   loading?: boolean;
   error?: string;
   onSignIn?: () => void;
@@ -19,6 +20,7 @@ export interface RegisterFormProps {
 export function RegisterForm({
   onSubmit: onSubmitProp,
   authClient,
+  onSuccess,
   loading: loadingProp,
   error,
   onSignIn,
@@ -35,6 +37,7 @@ export function RegisterForm({
     password?: string;
     confirmPassword?: string;
   }>({});
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const authClientLoading = useAuthClientLoading(authClient);
   const loading = loadingProp ?? authClientLoading;
@@ -68,9 +71,33 @@ export function RegisterForm({
     if (onSubmitProp) {
       await onSubmitProp({ email, password, name: showNameField ? name : undefined });
     } else if (authClient) {
-      await authClient.register({ email, password });
+      const result = await authClient.register({ email, password });
+      if (onSuccess) {
+        await onSuccess(result);
+      } else {
+        // Show success message if no onSuccess callback provided
+        setSuccessMessage(result.message);
+      }
     }
   };
+
+  // Show success message instead of form after successful registration
+  if (successMessage) {
+    return (
+      <div className={cn('subauth-register-form', className)}>
+        <Alert variant="success" className="subauth-form-field">
+          {successMessage}
+        </Alert>
+        {onSignIn && (
+          <p className="subauth-text-center subauth-text-sm subauth-text-muted" style={{ marginTop: 'var(--subauth-spacing-md)' }}>
+            <button type="button" onClick={onSignIn} className="subauth-link">
+              Sign in
+            </button>
+          </p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className={cn('subauth-register-form', className)} noValidate>
