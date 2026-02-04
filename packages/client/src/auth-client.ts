@@ -13,6 +13,9 @@ export class AuthClient {
       tokenStorageKey: 'auth_token',
       refreshTokenStorageKey: 'auth_refresh_token',
       userStorageKey: 'auth_user',
+      onTokenExpired: () => {
+        window.location.href = '/login';
+      },
       ...config,
     };
     this.storage = storage;

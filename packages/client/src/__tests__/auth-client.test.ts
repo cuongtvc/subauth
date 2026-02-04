@@ -501,6 +501,23 @@ describe('AuthClient - Token Handling', () => {
 
     expect(onTokenExpired).toHaveBeenCalled();
   });
+
+  it('should redirect to /login by default when token expires', async () => {
+    storage.setItem('auth_token', 'expired_token');
+    client = new AuthClient({}, storage);
+
+    // Mock window.location
+    const mockLocation = { href: '' };
+    vi.stubGlobal('window', { location: mockLocation });
+
+    mockFetch.mockReturnValueOnce(mockErrorResponse(401, { code: 'TOKEN_EXPIRED' }));
+
+    try {
+      await client.fetchWithAuth('/api/protected');
+    } catch {}
+
+    expect(mockLocation.href).toBe('/login');
+  });
 });
 
 // ============================================
