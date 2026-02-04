@@ -17,13 +17,17 @@ export interface RegisterFormProps {
   className?: string;
 }
 
+const defaultOnSignIn = () => {
+  window.location.pathname = '/login';
+};
+
 export function RegisterForm({
   onSubmit: onSubmitProp,
   authClient,
   onSuccess,
   loading: loadingProp,
   error,
-  onSignIn,
+  onSignIn = defaultOnSignIn,
   showNameField = false,
   className,
 }: RegisterFormProps) {
@@ -92,13 +96,11 @@ export function RegisterForm({
         <Alert variant="success" className="subauth-form-field">
           {successMessage}
         </Alert>
-        {onSignIn && (
-          <p className="subauth-text-center subauth-text-sm subauth-text-muted" style={{ marginTop: 'var(--subauth-spacing-md)' }}>
-            <button type="button" onClick={onSignIn} className="subauth-link">
-              Sign in
-            </button>
-          </p>
-        )}
+        <p className="subauth-text-center subauth-text-sm subauth-text-muted" style={{ marginTop: 'var(--subauth-spacing-md)' }}>
+          <button type="button" onClick={onSignIn} className="subauth-link">
+            Sign in
+          </button>
+        </p>
       </div>
     );
   }
@@ -157,14 +159,12 @@ export function RegisterForm({
         Create account
       </Button>
 
-      {onSignIn && (
-        <p className="subauth-text-center subauth-text-sm subauth-text-muted" style={{ marginTop: 'var(--subauth-spacing-md)' }}>
-          Already have an account?{' '}
-          <button type="button" onClick={onSignIn} className="subauth-link">
-            Sign in
-          </button>
-        </p>
-      )}
+      <p className="subauth-text-center subauth-text-sm subauth-text-muted" style={{ marginTop: 'var(--subauth-spacing-md)' }}>
+        Already have an account?{' '}
+        <button type="button" onClick={onSignIn} className="subauth-link">
+          Sign in
+        </button>
+      </p>
     </form>
   );
 }

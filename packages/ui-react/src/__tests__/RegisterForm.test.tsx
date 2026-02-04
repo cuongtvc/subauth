@@ -187,10 +187,29 @@ describe('RegisterForm', () => {
     expect(screen.getByText(/registration failed/i)).toBeInTheDocument();
   });
 
-  it('should render sign in link when onSignIn is provided', () => {
-    render(<RegisterForm onSubmit={vi.fn()} onSignIn={vi.fn()} />);
+  it('should render sign in link by default', () => {
+    render(<RegisterForm onSubmit={vi.fn()} />);
 
     expect(screen.getByText(/sign in/i)).toBeInTheDocument();
+  });
+
+  it('should navigate to /login by default when sign in link is clicked', async () => {
+    render(<RegisterForm onSubmit={vi.fn()} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByText(/sign in/i));
+
+    expect(window.location.pathname).toBe('/login');
+  });
+
+  it('should use custom onSignIn when provided', async () => {
+    const onSignIn = vi.fn();
+    render(<RegisterForm onSubmit={vi.fn()} onSignIn={onSignIn} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByText(/sign in/i));
+
+    expect(onSignIn).toHaveBeenCalled();
   });
 
   it('should use authClient.getState().isLoading for loading state when authClient is provided and loading prop is not set', () => {
