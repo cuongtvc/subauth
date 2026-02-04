@@ -30,6 +30,7 @@ export function LoginForm({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const authClientLoading = useAuthClientLoading(authClient);
   const loading = loadingProp ?? authClientLoading;
@@ -58,15 +59,19 @@ export function LoginForm({
     if (onSubmitProp) {
       await onSubmitProp({ email, password });
     } else if (authClient) {
-      await authClient.login({ email, password });
+      try {
+        await authClient.login({ email, password });
+      } catch (err) {
+        setApiError(err instanceof Error ? err.message : 'Login failed');
+      }
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className={cn('subauth-login-form', className)} noValidate>
-      {error && (
+      {(error || apiError) && (
         <Alert variant="error" className="subauth-form-field">
-          {error}
+          {error || apiError}
         </Alert>
       )}
 

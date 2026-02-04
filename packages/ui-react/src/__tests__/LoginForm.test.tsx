@@ -141,6 +141,46 @@ describe('LoginForm', () => {
     expect(button).toBeDisabled();
   });
 
+  it('should display error message when authClient.login throws', async () => {
+    const mockLogin = vi.fn().mockRejectedValue(new Error('Invalid credentials'));
+    const mockAuthClient = {
+      login: mockLogin,
+      getState: vi.fn().mockReturnValue({ isLoading: false }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<LoginForm authClient={mockAuthClient} />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/invalid credentials/i)).toBeInTheDocument();
+    });
+  });
+
+  it('should display generic error when authClient.login throws non-Error', async () => {
+    const mockLogin = vi.fn().mockRejectedValue('something went wrong');
+    const mockAuthClient = {
+      login: mockLogin,
+      getState: vi.fn().mockReturnValue({ isLoading: false }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<LoginForm authClient={mockAuthClient} />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/login failed/i)).toBeInTheDocument();
+    });
+  });
+
   it('should use loading prop over authClient.getState().isLoading when both are provided', () => {
     const mockAuthClient = {
       login: vi.fn(),
