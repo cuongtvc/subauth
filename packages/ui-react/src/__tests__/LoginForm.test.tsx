@@ -141,6 +141,28 @@ describe('LoginForm', () => {
     expect(button).toBeDisabled();
   });
 
+  it('should call onSuccess with result when login succeeds via authClient', async () => {
+    const mockLoginResult = { user: { id: '1', email: 'test@example.com' }, tokens: {} };
+    const mockLogin = vi.fn().mockResolvedValue(mockLoginResult);
+    const mockOnSuccess = vi.fn();
+    const mockAuthClient = {
+      login: mockLogin,
+      getState: vi.fn().mockReturnValue({ isLoading: false }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<LoginForm authClient={mockAuthClient} onSuccess={mockOnSuccess} />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(mockOnSuccess).toHaveBeenCalledWith(mockLoginResult);
+    });
+  });
+
   it('should display error message when authClient.login throws', async () => {
     const mockLogin = vi.fn().mockRejectedValue(new Error('Invalid credentials'));
     const mockAuthClient = {

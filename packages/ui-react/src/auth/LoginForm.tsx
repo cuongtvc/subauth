@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { validateEmail, validateRequired, cn } from '@subauth/ui-core';
-import type { AuthClient } from '@subauth/client';
+import type { AuthClient, User, AuthTokens } from '@subauth/client';
 import { FormField } from '../primitives/FormField';
 import { Button } from '../primitives/Button';
 import { Alert } from '../primitives/Alert';
@@ -9,6 +9,7 @@ import { useAuthClientLoading } from '../hooks/useAuthClientLoading';
 export interface LoginFormProps {
   onSubmit?: (data: { email: string; password: string }) => void | Promise<void>;
   authClient?: AuthClient;
+  onSuccess?: (result: { user: User; tokens: AuthTokens }) => void | Promise<void>;
   loading?: boolean;
   error?: string;
   onForgotPassword?: () => void;
@@ -20,6 +21,7 @@ export interface LoginFormProps {
 export function LoginForm({
   onSubmit: onSubmitProp,
   authClient,
+  onSuccess,
   loading: loadingProp,
   error,
   onForgotPassword,
@@ -60,7 +62,10 @@ export function LoginForm({
       await onSubmitProp({ email, password });
     } else if (authClient) {
       try {
-        await authClient.login({ email, password });
+        const result = await authClient.login({ email, password });
+        if (onSuccess) {
+          await onSuccess(result);
+        }
       } catch (err) {
         setApiError(err instanceof Error ? err.message : 'Login failed');
       }
