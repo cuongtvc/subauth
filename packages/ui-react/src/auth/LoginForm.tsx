@@ -18,15 +18,31 @@ export interface LoginFormProps {
   className?: string;
 }
 
+const defaultOnSuccess = () => {
+  window.location.pathname = '/dashboard';
+};
+
+const defaultOnForgotPassword = () => {
+  window.location.pathname = '/forgot-password';
+};
+
+const defaultOnSignUp = () => {
+  window.location.pathname = '/register';
+};
+
+const defaultOnResendVerification = () => {
+  window.location.pathname = '/resend-verification';
+};
+
 export function LoginForm({
   onSubmit: onSubmitProp,
   authClient,
-  onSuccess,
+  onSuccess = defaultOnSuccess,
   loading: loadingProp,
   error,
-  onForgotPassword,
-  onSignUp,
-  onResendVerification,
+  onForgotPassword = defaultOnForgotPassword,
+  onSignUp = defaultOnSignUp,
+  onResendVerification = defaultOnResendVerification,
   className,
 }: LoginFormProps) {
   const [email, setEmail] = useState('');
@@ -100,39 +116,33 @@ export function LoginForm({
         autoComplete="current-password"
       />
 
-      {onForgotPassword && (
-        <div className="subauth-text-sm subauth-form-field">
-          <button
-            type="button"
-            onClick={onForgotPassword}
-            className="subauth-link"
-          >
-            Forgot password?
-          </button>
-        </div>
-      )}
+      <div className="subauth-text-sm subauth-form-field">
+        <button
+          type="button"
+          onClick={onForgotPassword}
+          className="subauth-link"
+        >
+          Forgot password?
+        </button>
+      </div>
 
       <Button type="submit" loading={loading} fullWidth>
         Sign in
       </Button>
 
-      {onSignUp && (
-        <p className="subauth-text-center subauth-text-sm subauth-text-muted" style={{ marginTop: 'var(--subauth-spacing-md)' }}>
-          Don't have an account?{' '}
-          <button type="button" onClick={onSignUp} className="subauth-link">
-            Sign up
-          </button>
-        </p>
-      )}
+      <p className="subauth-text-center subauth-text-sm subauth-text-muted" style={{ marginTop: 'var(--subauth-spacing-md)' }}>
+        Don't have an account?{' '}
+        <button type="button" onClick={onSignUp} className="subauth-link">
+          Sign up
+        </button>
+      </p>
 
-      {onResendVerification && (
-        <p className="subauth-text-center subauth-text-sm subauth-text-muted" style={{ marginTop: 'var(--subauth-spacing-md)' }}>
-          Didn't receive verification email?{' '}
-          <button type="button" onClick={onResendVerification} className="subauth-link">
-            Resend verification
-          </button>
-        </p>
-      )}
+      <p className="subauth-text-center subauth-text-sm subauth-text-muted" style={{ marginTop: 'var(--subauth-spacing-md)' }}>
+        Didn't receive verification email?{' '}
+        <button type="button" onClick={onResendVerification} className="subauth-link">
+          Resend verification
+        </button>
+      </p>
     </form>
   );
 }

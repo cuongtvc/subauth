@@ -77,22 +77,69 @@ describe('LoginForm', () => {
     expect(screen.getByText(/invalid credentials/i)).toBeInTheDocument();
   });
 
-  it('should render forgot password link when onForgotPassword is provided', () => {
-    render(<LoginForm onSubmit={vi.fn()} onForgotPassword={vi.fn()} />);
+  it('should render forgot password link by default', () => {
+    render(<LoginForm onSubmit={vi.fn()} />);
 
     expect(screen.getByText(/forgot password/i)).toBeInTheDocument();
   });
 
-  it('should render sign up link when onSignUp is provided', () => {
-    render(<LoginForm onSubmit={vi.fn()} onSignUp={vi.fn()} />);
+  it('should render sign up link by default', () => {
+    render(<LoginForm onSubmit={vi.fn()} />);
 
     expect(screen.getByText(/sign up/i)).toBeInTheDocument();
   });
 
-  it('should render resend verification link when onResendVerification is provided', () => {
-    render(<LoginForm onSubmit={vi.fn()} onResendVerification={vi.fn()} />);
+  it('should render resend verification link by default', () => {
+    render(<LoginForm onSubmit={vi.fn()} />);
 
     expect(screen.getByText(/resend verification/i)).toBeInTheDocument();
+  });
+
+  it('should navigate to /forgot-password by default when forgot password link is clicked', async () => {
+    render(<LoginForm onSubmit={vi.fn()} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByText(/forgot password/i));
+
+    expect(window.location.pathname).toBe('/forgot-password');
+  });
+
+  it('should navigate to /register by default when sign up link is clicked', async () => {
+    render(<LoginForm onSubmit={vi.fn()} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByText(/sign up/i));
+
+    expect(window.location.pathname).toBe('/register');
+  });
+
+  it('should navigate to /resend-verification by default when resend verification link is clicked', async () => {
+    render(<LoginForm onSubmit={vi.fn()} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByText(/resend verification/i));
+
+    expect(window.location.pathname).toBe('/resend-verification');
+  });
+
+  it('should use custom onForgotPassword when provided', async () => {
+    const onForgotPassword = vi.fn();
+    render(<LoginForm onSubmit={vi.fn()} onForgotPassword={onForgotPassword} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByText(/forgot password/i));
+
+    expect(onForgotPassword).toHaveBeenCalled();
+  });
+
+  it('should use custom onSignUp when provided', async () => {
+    const onSignUp = vi.fn();
+    render(<LoginForm onSubmit={vi.fn()} onSignUp={onSignUp} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByText(/sign up/i));
+
+    expect(onSignUp).toHaveBeenCalled();
   });
 
   it('should call onResendVerification when resend verification link is clicked', async () => {
@@ -160,6 +207,27 @@ describe('LoginForm', () => {
 
     await waitFor(() => {
       expect(mockOnSuccess).toHaveBeenCalledWith(mockLoginResult);
+    });
+  });
+
+  it('should navigate to /dashboard by default when login succeeds via authClient', async () => {
+    const mockLoginResult = { user: { id: '1', email: 'test@example.com' }, tokens: {} };
+    const mockLogin = vi.fn().mockResolvedValue(mockLoginResult);
+    const mockAuthClient = {
+      login: mockLogin,
+      getState: vi.fn().mockReturnValue({ isLoading: false }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<LoginForm authClient={mockAuthClient} />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/dashboard');
     });
   });
 
