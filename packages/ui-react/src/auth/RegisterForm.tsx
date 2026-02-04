@@ -38,6 +38,7 @@ export function RegisterForm({
     confirmPassword?: string;
   }>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const authClientLoading = useAuthClientLoading(authClient);
   const loading = loadingProp ?? authClientLoading;
@@ -71,12 +72,15 @@ export function RegisterForm({
     if (onSubmitProp) {
       await onSubmitProp({ email, password, name: showNameField ? name : undefined });
     } else if (authClient) {
-      const result = await authClient.register({ email, password });
-      if (onSuccess) {
-        await onSuccess(result);
-      } else {
-        // Show success message if no onSuccess callback provided
-        setSuccessMessage(result.message);
+      try {
+        const result = await authClient.register({ email, password });
+        if (onSuccess) {
+          await onSuccess(result);
+        } else {
+          setSuccessMessage(result.message);
+        }
+      } catch (err) {
+        setApiError(err instanceof Error ? err.message : 'Registration failed');
       }
     }
   };
@@ -101,9 +105,9 @@ export function RegisterForm({
 
   return (
     <form onSubmit={handleSubmit} className={cn('subauth-register-form', className)} noValidate>
-      {error && (
+      {(error || apiError) && (
         <Alert variant="error" className="subauth-form-field">
-          {error}
+          {error || apiError}
         </Alert>
       )}
 
