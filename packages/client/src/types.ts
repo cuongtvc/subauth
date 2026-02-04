@@ -38,5 +38,10 @@ export interface TrialInfo {
   isExpired: boolean;
 }
 
+export interface RegisterResult {
+  message: string;
+  requiresEmailVerification: boolean;
+}
+
 export type AuthStateListener = (state: AuthState) => void;
 export type SubscriptionStateListener = (state: SubscriptionState) => void;

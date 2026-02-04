@@ -173,34 +173,56 @@ describe('AuthClient - Register', () => {
     vi.unstubAllGlobals();
   });
 
-  it('should register user and update state', async () => {
+  it('should register user and return success message (email verification required)', async () => {
+    // Backend returns success message, NOT tokens (user must verify email first)
     mockFetch.mockReturnValueOnce(mockSuccessResponse({
-      user: { id: '1', email: 'test@example.com', emailVerified: false },
-      tokens: { accessToken: 'new_token', expiresAt: new Date(Date.now() + 86400000).toISOString() },
+      success: true,
+      data: {
+        message: 'Registration successful. Please check your email to verify your account before logging in.',
+      },
     }));
 
     const result = await client.register({ email: 'test@example.com', password: 'password123' });
 
-    expect(result.user.email).toBe('test@example.com');
-    expect(client.getState().isAuthenticated).toBe(true);
-    expect(client.getState().token).toBe('new_token');
+    expect(result.message).toContain('Registration successful');
+    expect(result.requiresEmailVerification).toBe(true);
   });
 
-  it('should persist token to storage after register', async () => {
+  it('should NOT set authenticated state after registration (email verification required)', async () => {
     mockFetch.mockReturnValueOnce(mockSuccessResponse({
-      user: { id: '1', email: 'test@example.com', emailVerified: false },
-      tokens: { accessToken: 'new_token', expiresAt: new Date(Date.now() + 86400000).toISOString() },
+      success: true,
+      data: {
+        message: 'Registration successful. Please check your email to verify your account before logging in.',
+      },
     }));
 
     await client.register({ email: 'test@example.com', password: 'password123' });
 
-    expect(storage.getItem('auth_token')).toBe('new_token');
+    // User should NOT be authenticated until they verify email and login
+    expect(client.getState().isAuthenticated).toBe(false);
+    expect(client.getState().token).toBeNull();
+    expect(client.getState().user).toBeNull();
+  });
+
+  it('should NOT persist any tokens to storage after registration', async () => {
+    mockFetch.mockReturnValueOnce(mockSuccessResponse({
+      success: true,
+      data: {
+        message: 'Registration successful. Please check your email to verify your account before logging in.',
+      },
+    }));
+
+    await client.register({ email: 'test@example.com', password: 'password123' });
+
+    expect(storage.getItem('auth_token')).toBeNull();
+    expect(storage.getItem('auth_refresh_token')).toBeNull();
+    expect(storage.getItem('auth_user')).toBeNull();
   });
 
   it('should call correct endpoint with correct payload', async () => {
     mockFetch.mockReturnValueOnce(mockSuccessResponse({
-      user: { id: '1', email: 'test@example.com', emailVerified: false },
-      tokens: { accessToken: 'token', expiresAt: new Date().toISOString() },
+      success: true,
+      data: { message: 'Registration successful.' },
     }));
 
     await client.register({ email: 'test@example.com', password: 'password123' });
@@ -216,21 +238,71 @@ describe('AuthClient - Register', () => {
   });
 
   it('should throw error on registration failure', async () => {
-    mockFetch.mockReturnValueOnce(mockErrorResponse(400, { code: 'USER_EXISTS', message: 'User already exists' }));
+    mockFetch.mockReturnValueOnce(mockErrorResponse(400, { error: 'User already exists' }));
 
     await expect(
       client.register({ email: 'test@example.com', password: 'password123' })
-    ).rejects.toThrow();
+    ).rejects.toThrow('User already exists');
+  });
+
+  it('should throw error with message from error response', async () => {
+    mockFetch.mockReturnValueOnce(mockErrorResponse(400, { error: 'Password must be at least 8 characters' }));
+
+    await expect(
+      client.register({ email: 'test@example.com', password: 'short' })
+    ).rejects.toThrow('Password must be at least 8 characters');
   });
 
   it('should not update state on registration failure', async () => {
-    mockFetch.mockReturnValueOnce(mockErrorResponse(400, { code: 'USER_EXISTS' }));
+    mockFetch.mockReturnValueOnce(mockErrorResponse(400, { error: 'User already exists' }));
 
     try {
       await client.register({ email: 'test@example.com', password: 'password123' });
     } catch {}
 
     expect(client.getState().isAuthenticated).toBe(false);
+  });
+
+  it('should set and clear loading state during registration', async () => {
+    let loadingDuringRequest = false;
+
+    mockFetch.mockImplementationOnce(() => {
+      loadingDuringRequest = client.getState().isLoading;
+      return mockSuccessResponse({
+        success: true,
+        data: { message: 'Registration successful.' },
+      });
+    });
+
+    await client.register({ email: 'test@example.com', password: 'password123' });
+
+    expect(loadingDuringRequest).toBe(true);
+    expect(client.getState().isLoading).toBe(false);
+  });
+
+  it('should clear loading state on registration failure', async () => {
+    mockFetch.mockReturnValueOnce(mockErrorResponse(400, { error: 'Registration failed' }));
+
+    try {
+      await client.register({ email: 'test@example.com', password: 'password123' });
+    } catch {}
+
+    expect(client.getState().isLoading).toBe(false);
+  });
+
+  it('should NOT call onLoginSuccess callback after registration', async () => {
+    const onLoginSuccess = vi.fn();
+    client = new AuthClient(createTestConfig({ onLoginSuccess }), storage);
+
+    mockFetch.mockReturnValueOnce(mockSuccessResponse({
+      success: true,
+      data: { message: 'Registration successful.' },
+    }));
+
+    await client.register({ email: 'test@example.com', password: 'password123' });
+
+    // onLoginSuccess should NOT be called since user is not logged in
+    expect(onLoginSuccess).not.toHaveBeenCalled();
   });
 });
 
@@ -846,22 +918,19 @@ describe('AuthClient - Callbacks', () => {
     });
   });
 
-  it('should call onLoginSuccess callback after successful register', async () => {
+  it('should NOT call onLoginSuccess callback after registration (email verification required)', async () => {
     const onLoginSuccess = vi.fn();
     const client = new AuthClient(createTestConfig({ onLoginSuccess }), storage);
 
     mockFetch.mockReturnValueOnce(mockSuccessResponse({
-      user: { id: '1', email: 'test@example.com', emailVerified: false },
-      tokens: {
-        accessToken: 'access_token',
-        refreshToken: 'refresh_token',
-        expiresAt: new Date(Date.now() + 86400000).toISOString(),
-      },
+      success: true,
+      data: { message: 'Registration successful.' },
     }));
 
     await client.register({ email: 'test@example.com', password: 'password123' });
 
-    expect(onLoginSuccess).toHaveBeenCalled();
+    // Registration does not log user in - they must verify email first
+    expect(onLoginSuccess).not.toHaveBeenCalled();
   });
 
   it('should not call onLoginSuccess callback on failed login', async () => {

@@ -1,4 +1,4 @@
-import type { AuthClientConfig, AuthState, AuthStateListener } from './types';
+import type { AuthClientConfig, AuthState, AuthStateListener, RegisterResult } from './types';
 import type { User, AuthTokens, RegisterInput, LoginInput } from '@subauth/core';
 
 export class AuthClient {
@@ -97,7 +97,7 @@ export class AuthClient {
     };
   }
 
-  async register(input: RegisterInput): Promise<{ user: User; tokens: AuthTokens }> {
+  async register(input: RegisterInput): Promise<RegisterResult> {
     this.setState({ isLoading: true });
 
     try {
@@ -108,35 +108,20 @@ export class AuthClient {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || error.code || 'Registration failed');
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || errorData.code || 'Registration failed');
       }
 
       const data = await response.json();
-      const { user, tokens } = data;
 
-      // Parse expiresAt if string
-      const parsedTokens: AuthTokens = {
-        ...tokens,
-        expiresAt: new Date(tokens.expiresAt),
+      // Registration requires email verification - do NOT store tokens or set authenticated state
+      // User must verify email and then login to get tokens
+      this.setState({ isLoading: false });
+
+      return {
+        message: data.data?.message || data.message || 'Registration successful',
+        requiresEmailVerification: true,
       };
-
-      // Save to storage and update state
-      this.saveStateToStorage(user, tokens.accessToken, tokens.refreshToken);
-      this.setState({
-        user,
-        token: tokens.accessToken,
-        refreshToken: tokens.refreshToken || null,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-
-      // Call onLoginSuccess callback
-      if (this.config.onLoginSuccess) {
-        await this.config.onLoginSuccess({ user, tokens: parsedTokens });
-      }
-
-      return { user, tokens: parsedTokens };
     } catch (error) {
       this.setState({ isLoading: false });
       throw error;

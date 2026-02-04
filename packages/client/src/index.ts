@@ -5,6 +5,7 @@ export type {
   AuthClientConfig,
   AuthState,
   AuthStateListener,
+  RegisterResult,
   SubscriptionClientConfig,
   SubscriptionState,
   SubscriptionStateListener,
