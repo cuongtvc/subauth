@@ -7,8 +7,9 @@ export class AuthClient {
   private state: AuthState;
   private listeners: Set<AuthStateListener> = new Set();
 
-  constructor(config: AuthClientConfig, storage: Storage) {
+  constructor(config: AuthClientConfig = {}, storage: Storage = localStorage) {
     this.config = {
+      baseUrl: '/api',
       tokenStorageKey: 'auth_token',
       refreshTokenStorageKey: 'auth_refresh_token',
       userStorageKey: 'auth_user',

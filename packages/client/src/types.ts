@@ -1,7 +1,7 @@
 import type { User, Subscription, AuthTokens } from '@subauth/core';
 
 export interface AuthClientConfig {
-  baseUrl: string;
+  baseUrl?: string;
   tokenStorageKey?: string;
   refreshTokenStorageKey?: string;
   userStorageKey?: string;

@@ -110,6 +110,47 @@ describe('AuthClient - Initialization', () => {
 
     expect(client.getState().token).toBe('my_token');
   });
+
+  it('should default baseUrl to /api when not provided', async () => {
+    const client = new AuthClient({}, storage);
+
+    mockFetch.mockReturnValueOnce(mockSuccessResponse({
+      user: { id: '1', email: 'test@example.com', emailVerified: true },
+      tokens: { accessToken: 'token', expiresAt: new Date().toISOString() },
+    }));
+
+    await client.login({ email: 'test@example.com', password: 'password123' });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/auth/login',
+      expect.any(Object)
+    );
+  });
+
+  it('should default storage to localStorage when not provided', () => {
+    const mockLocalStorage = createMockStorage();
+    vi.stubGlobal('localStorage', mockLocalStorage);
+
+    mockLocalStorage.setItem('auth_token', 'stored_token');
+    mockLocalStorage.setItem('auth_user', JSON.stringify({ id: '1', email: 'test@example.com' }));
+
+    const client = new AuthClient();
+    const state = client.getState();
+
+    expect(state.isAuthenticated).toBe(true);
+    expect(state.token).toBe('stored_token');
+  });
+
+  it('should allow creating client with no arguments', () => {
+    const mockLocalStorage = createMockStorage();
+    vi.stubGlobal('localStorage', mockLocalStorage);
+
+    const client = new AuthClient();
+    const state = client.getState();
+
+    expect(state.isAuthenticated).toBe(false);
+    expect(state.user).toBeNull();
+  });
 });
 
 // ============================================
