@@ -63,4 +63,5 @@ export type { FeatureListProps } from './subscription/FeatureList';
 
 // Hooks
 export { useAuthClient } from './hooks/useAuthClient';
+export { useAuthClientLoading } from './hooks/useAuthClientLoading';
 export { useSubscriptionClient } from './hooks/useSubscriptionClient';

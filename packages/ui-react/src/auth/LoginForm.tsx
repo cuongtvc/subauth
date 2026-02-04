@@ -4,6 +4,7 @@ import type { AuthClient } from '@subauth/client';
 import { FormField } from '../primitives/FormField';
 import { Button } from '../primitives/Button';
 import { Alert } from '../primitives/Alert';
+import { useAuthClientLoading } from '../hooks/useAuthClientLoading';
 
 export interface LoginFormProps {
   onSubmit?: (data: { email: string; password: string }) => void | Promise<void>;
@@ -19,7 +20,7 @@ export interface LoginFormProps {
 export function LoginForm({
   onSubmit: onSubmitProp,
   authClient,
-  loading = false,
+  loading: loadingProp,
   error,
   onForgotPassword,
   onSignUp,
@@ -29,6 +30,9 @@ export function LoginForm({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+
+  const authClientLoading = useAuthClientLoading(authClient);
+  const loading = loadingProp ?? authClientLoading;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

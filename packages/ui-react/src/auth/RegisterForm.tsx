@@ -4,6 +4,7 @@ import type { AuthClient } from '@subauth/client';
 import { FormField } from '../primitives/FormField';
 import { Button } from '../primitives/Button';
 import { Alert } from '../primitives/Alert';
+import { useAuthClientLoading } from '../hooks/useAuthClientLoading';
 
 export interface RegisterFormProps {
   onSubmit?: (data: { email: string; password: string; name?: string }) => void | Promise<void>;
@@ -18,7 +19,7 @@ export interface RegisterFormProps {
 export function RegisterForm({
   onSubmit: onSubmitProp,
   authClient,
-  loading = false,
+  loading: loadingProp,
   error,
   onSignIn,
   showNameField = false,
@@ -34,6 +35,9 @@ export function RegisterForm({
     password?: string;
     confirmPassword?: string;
   }>({});
+
+  const authClientLoading = useAuthClientLoading(authClient);
+  const loading = loadingProp ?? authClientLoading;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

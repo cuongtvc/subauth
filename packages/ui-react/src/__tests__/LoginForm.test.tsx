@@ -109,6 +109,8 @@ describe('LoginForm', () => {
     const mockLogin = vi.fn().mockResolvedValue({ user: {}, tokens: {} });
     const mockAuthClient = {
       login: mockLogin,
+      getState: vi.fn().mockReturnValue({ isLoading: false }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
     } as unknown as AuthClient;
 
     render(<LoginForm authClient={mockAuthClient} />);
@@ -124,5 +126,31 @@ describe('LoginForm', () => {
         password: 'password123',
       });
     });
+  });
+
+  it('should use authClient.getState().isLoading for loading state when authClient is provided and loading prop is not set', () => {
+    const mockAuthClient = {
+      login: vi.fn(),
+      getState: vi.fn().mockReturnValue({ isLoading: true }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<LoginForm authClient={mockAuthClient} />);
+
+    const button = screen.getByRole('button', { name: /sign in/i });
+    expect(button).toBeDisabled();
+  });
+
+  it('should use loading prop over authClient.getState().isLoading when both are provided', () => {
+    const mockAuthClient = {
+      login: vi.fn(),
+      getState: vi.fn().mockReturnValue({ isLoading: true }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<LoginForm authClient={mockAuthClient} loading={false} />);
+
+    const button = screen.getByRole('button', { name: /sign in/i });
+    expect(button).not.toBeDisabled();
   });
 });
