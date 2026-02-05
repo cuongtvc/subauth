@@ -195,8 +195,10 @@ describe('createSubAuth', () => {
       expect(subauth.subscriptionHandlers).toBeDefined();
       expect(createSubscriptionHandlers).toHaveBeenCalledWith(
         expect.objectContaining({
-          plans: config.subscription!.plans,
-          trialDays: 14,
+          config: {
+            plans: config.subscription!.plans,
+            trialDays: 14,
+          },
         })
       );
     });
