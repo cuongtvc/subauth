@@ -214,10 +214,11 @@ export function createSubAuth(config: SubAuthConfig): SubAuthInstance {
     subscriptionHandlers = createSubscriptionHandlers({
       authConfig,
       database: databaseAdapter,
-      email: emailAdapter,
       payment: paymentAdapter,
-      plans: config.subscription.plans,
-      trialDays: config.subscription.trialDays,
+      config: {
+        plans: config.subscription.plans,
+        trialDays: config.subscription.trialDays,
+      },
     });
   }
 
