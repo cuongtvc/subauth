@@ -1,11 +1,15 @@
+import { useState, useEffect } from 'react';
 import { cn } from '@subauth/ui-core';
+import type { AuthClient } from '@subauth/client';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../primitives/Card';
 import { Button } from '../primitives/Button';
 import { Alert } from '../primitives/Alert';
 import { Spinner } from '../primitives/Spinner';
 
 export interface VerifyEmailCardProps {
-  status: 'verifying' | 'success' | 'error' | 'expired';
+  status?: 'verifying' | 'success' | 'error' | 'expired';
+  authClient?: AuthClient;
+  token?: string;
   onResend?: () => void;
   onContinue?: () => void;
   resendLoading?: boolean;
@@ -14,15 +18,47 @@ export interface VerifyEmailCardProps {
   className?: string;
 }
 
+const defaultOnContinue = () => {
+  window.location.pathname = '/login';
+};
+
+const defaultOnResend = () => {
+  window.location.pathname = '/resend-verification';
+};
+
 export function VerifyEmailCard({
-  status,
-  onResend,
-  onContinue,
+  status: statusProp,
+  authClient,
+  token,
+  onResend: onResendProp,
+  onContinue: onContinueProp,
   resendLoading = false,
   email,
-  error,
+  error: errorProp,
   className,
 }: VerifyEmailCardProps) {
+  const [internalStatus, setInternalStatus] = useState<'verifying' | 'success' | 'error' | 'expired'>('verifying');
+  const [internalError, setInternalError] = useState<string | null>(null);
+
+  const status = statusProp ?? internalStatus;
+  const error = errorProp ?? internalError;
+  const onContinue = onContinueProp ?? (authClient ? defaultOnContinue : undefined);
+  const onResend = onResendProp ?? (authClient ? defaultOnResend : undefined);
+
+  useEffect(() => {
+    if (authClient && token && !statusProp) {
+      const verify = async () => {
+        try {
+          await authClient.verifyEmail(token);
+          setInternalStatus('success');
+        } catch (err) {
+          setInternalStatus('error');
+          setInternalError(err instanceof Error ? err.message : 'Verification failed');
+        }
+      };
+      verify();
+    }
+  }, [authClient, token, statusProp]);
   return (
     <Card padding="lg" shadow="md" className={cn('subauth-verify-email-card', className)}>
       <CardHeader>

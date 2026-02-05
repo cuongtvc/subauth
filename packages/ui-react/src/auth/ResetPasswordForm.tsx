@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
 import { validatePassword, validateMatch, cn } from '@subauth/ui-core';
+import type { AuthClient } from '@subauth/client';
 import { FormField } from '../primitives/FormField';
 import { Button } from '../primitives/Button';
 import { Alert } from '../primitives/Alert';
+import { useAuthClientLoading } from '../hooks/useAuthClientLoading';
 
 export interface ResetPasswordFormProps {
-  onSubmit: (data: { password: string }) => void | Promise<void>;
+  onSubmit?: (data: { password: string }) => void | Promise<void>;
+  authClient?: AuthClient;
+  token?: string;
+  onSuccess?: () => void | Promise<void>;
   loading?: boolean;
   error?: string;
   success?: boolean;
@@ -13,17 +18,31 @@ export interface ResetPasswordFormProps {
   className?: string;
 }
 
+const defaultOnBackToLogin = () => {
+  window.location.pathname = '/login';
+};
+
 export function ResetPasswordForm({
-  onSubmit,
-  loading = false,
-  error,
-  success = false,
-  onBackToLogin,
+  onSubmit: onSubmitProp,
+  authClient,
+  token,
+  onSuccess,
+  loading: loadingProp,
+  error: errorProp,
+  success: successProp,
+  onBackToLogin = defaultOnBackToLogin,
   className,
 }: ResetPasswordFormProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState<{ password?: string; confirmPassword?: string }>({});
+  const [internalSuccess, setInternalSuccess] = useState(false);
+  const [internalError, setInternalError] = useState<string | null>(null);
+
+  const authClientLoading = useAuthClientLoading(authClient);
+  const loading = loadingProp ?? authClientLoading;
+  const success = successProp ?? internalSuccess;
+  const error = errorProp ?? internalError;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +65,19 @@ export function ResetPasswordForm({
     }
 
     setErrors({});
-    await onSubmit({ password });
+    if (onSubmitProp) {
+      await onSubmitProp({ password });
+    } else if (authClient && token) {
+      try {
+        await authClient.resetPassword(token, password);
+        setInternalSuccess(true);
+        if (onSuccess) {
+          await onSuccess();
+        }
+      } catch (err) {
+        setInternalError(err instanceof Error ? err.message : 'Failed to reset password');
+      }
+    }
   };
 
   if (success) {

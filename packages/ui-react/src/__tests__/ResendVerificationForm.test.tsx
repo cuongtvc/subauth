@@ -2,6 +2,12 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ResendVerificationForm } from '../auth/ResendVerificationForm';
+import { AuthClient } from '@subauth/client';
+
+// Mock AuthClient
+vi.mock('@subauth/client', () => ({
+  AuthClient: vi.fn(),
+}));
 
 describe('ResendVerificationForm', () => {
   it('should render email field', () => {
@@ -86,5 +92,106 @@ describe('ResendVerificationForm', () => {
     render(<ResendVerificationForm onSubmit={vi.fn()} success onBackToLogin={vi.fn()} />);
 
     expect(screen.getByText(/sign in/i)).toBeInTheDocument();
+  });
+
+  // Tests for authClient integration
+  it('should use authClient.resendVerificationEmail when authClient is provided', async () => {
+    const mockResendVerificationEmail = vi.fn().mockResolvedValue(undefined);
+    const mockAuthClient = {
+      resendVerificationEmail: mockResendVerificationEmail,
+      getState: vi.fn().mockReturnValue({ isLoading: false }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<ResendVerificationForm authClient={mockAuthClient} />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.click(screen.getByRole('button', { name: /resend verification email/i }));
+
+    await waitFor(() => {
+      expect(mockResendVerificationEmail).toHaveBeenCalledWith('test@example.com');
+    });
+  });
+
+  it('should use authClient.getState().isLoading for loading state when authClient is provided', () => {
+    const mockAuthClient = {
+      resendVerificationEmail: vi.fn(),
+      getState: vi.fn().mockReturnValue({ isLoading: true }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<ResendVerificationForm authClient={mockAuthClient} />);
+
+    const button = screen.getByRole('button', { name: /resend verification email/i });
+    expect(button).toBeDisabled();
+  });
+
+  it('should call onSuccess after successful request via authClient', async () => {
+    const mockResendVerificationEmail = vi.fn().mockResolvedValue(undefined);
+    const mockOnSuccess = vi.fn();
+    const mockAuthClient = {
+      resendVerificationEmail: mockResendVerificationEmail,
+      getState: vi.fn().mockReturnValue({ isLoading: false }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<ResendVerificationForm authClient={mockAuthClient} onSuccess={mockOnSuccess} />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.click(screen.getByRole('button', { name: /resend verification email/i }));
+
+    await waitFor(() => {
+      expect(mockOnSuccess).toHaveBeenCalled();
+    });
+  });
+
+  it('should show success state after request via authClient even when error occurs', async () => {
+    const mockResendVerificationEmail = vi.fn().mockRejectedValue(new Error('Network error'));
+    const mockAuthClient = {
+      resendVerificationEmail: mockResendVerificationEmail,
+      getState: vi.fn().mockReturnValue({ isLoading: false }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<ResendVerificationForm authClient={mockAuthClient} />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.click(screen.getByRole('button', { name: /resend verification email/i }));
+
+    // Should show success to prevent email enumeration
+    await waitFor(() => {
+      expect(screen.getByText(/unverified account/i)).toBeInTheDocument();
+    });
+  });
+
+  it('should navigate to /login by default when back to login is clicked with authClient', async () => {
+    const mockAuthClient = {
+      resendVerificationEmail: vi.fn(),
+      getState: vi.fn().mockReturnValue({ isLoading: false }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<ResendVerificationForm authClient={mockAuthClient} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByText(/sign in/i));
+
+    expect(window.location.pathname).toBe('/login');
+  });
+
+  it('should use loading prop over authClient.getState().isLoading when both are provided', () => {
+    const mockAuthClient = {
+      resendVerificationEmail: vi.fn(),
+      getState: vi.fn().mockReturnValue({ isLoading: true }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<ResendVerificationForm authClient={mockAuthClient} loading={false} />);
+
+    const button = screen.getByRole('button', { name: /resend verification email/i });
+    expect(button).not.toBeDisabled();
   });
 });
