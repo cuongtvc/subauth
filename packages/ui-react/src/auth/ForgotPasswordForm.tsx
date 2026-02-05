@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { validateEmail, cn } from '@subauth/ui-core';
+import type { AuthClient } from '@subauth/client';
 import { FormField } from '../primitives/FormField';
 import { Button } from '../primitives/Button';
 import { Alert } from '../primitives/Alert';
+import { useAuthClientLoading } from '../hooks/useAuthClientLoading';
 
 export interface ForgotPasswordFormProps {
-  onSubmit: (data: { email: string }) => void | Promise<void>;
+  onSubmit?: (data: { email: string }) => void | Promise<void>;
+  authClient?: AuthClient;
+  onSuccess?: () => void | Promise<void>;
   loading?: boolean;
   error?: string;
   success?: boolean;
@@ -13,16 +17,27 @@ export interface ForgotPasswordFormProps {
   className?: string;
 }
 
+const defaultOnBackToLogin = () => {
+  window.location.pathname = '/login';
+};
+
 export function ForgotPasswordForm({
-  onSubmit,
-  loading = false,
+  onSubmit: onSubmitProp,
+  authClient,
+  onSuccess,
+  loading: loadingProp,
   error,
-  success = false,
-  onBackToLogin,
+  success: successProp,
+  onBackToLogin = defaultOnBackToLogin,
   className,
 }: ForgotPasswordFormProps) {
   const [email, setEmail] = useState('');
   const [errors, setErrors] = useState<{ email?: string }>({});
+  const [internalSuccess, setInternalSuccess] = useState(false);
+
+  const authClientLoading = useAuthClientLoading(authClient);
+  const loading = loadingProp ?? authClientLoading;
+  const success = successProp ?? internalSuccess;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +49,20 @@ export function ForgotPasswordForm({
     }
 
     setErrors({});
-    await onSubmit({ email });
+    if (onSubmitProp) {
+      await onSubmitProp({ email });
+    } else if (authClient) {
+      try {
+        await authClient.requestPasswordReset(email);
+      } catch {
+        // Ignore errors - always show success to prevent email enumeration
+      } finally {
+        setInternalSuccess(true);
+        if (onSuccess) {
+          await onSuccess();
+        }
+      }
+    }
   };
 
   if (success) {
