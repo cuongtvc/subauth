@@ -15,6 +15,7 @@ export interface ResetPasswordFormProps {
   error?: string;
   success?: boolean;
   onBackToLogin?: () => void;
+  onRequestNewLink?: () => void;
   className?: string;
 }
 
@@ -22,15 +23,31 @@ const defaultOnBackToLogin = () => {
   window.location.pathname = '/login';
 };
 
+const defaultOnSuccess = () => {
+  setTimeout(() => {
+    window.location.pathname = '/login';
+  }, 3000);
+};
+
+const defaultOnRequestNewLink = () => {
+  window.location.pathname = '/forgot-password';
+};
+
+const getTokenFromUrl = (): string | undefined => {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('token') || undefined;
+};
+
 export function ResetPasswordForm({
   onSubmit: onSubmitProp,
   authClient,
   token,
-  onSuccess,
+  onSuccess = defaultOnSuccess,
   loading: loadingProp,
   error: errorProp,
   success: successProp,
   onBackToLogin = defaultOnBackToLogin,
+  onRequestNewLink = defaultOnRequestNewLink,
   className,
 }: ResetPasswordFormProps) {
   const [password, setPassword] = useState('');
@@ -38,6 +55,9 @@ export function ResetPasswordForm({
   const [errors, setErrors] = useState<{ password?: string; confirmPassword?: string }>({});
   const [internalSuccess, setInternalSuccess] = useState(false);
   const [internalError, setInternalError] = useState<string | null>(null);
+
+  // Resolve token: prefer prop, fallback to URL
+  const resolvedToken = token ?? getTokenFromUrl();
 
   const authClientLoading = useAuthClientLoading(authClient);
   const loading = loadingProp ?? authClientLoading;
@@ -67,9 +87,9 @@ export function ResetPasswordForm({
     setErrors({});
     if (onSubmitProp) {
       await onSubmitProp({ password });
-    } else if (authClient && token) {
+    } else if (authClient && resolvedToken) {
       try {
-        await authClient.resetPassword(token, password);
+        await authClient.resetPassword(resolvedToken, password);
         setInternalSuccess(true);
         if (onSuccess) {
           await onSuccess();
@@ -79,6 +99,20 @@ export function ResetPasswordForm({
       }
     }
   };
+
+  // Show error UI when authClient is provided but token is missing
+  if (authClient && !resolvedToken) {
+    return (
+      <div className={cn('subauth-reset-password-form', className)}>
+        <Alert variant="error" className="subauth-form-field">
+          Invalid or missing reset token
+        </Alert>
+        <Button onClick={onRequestNewLink} fullWidth>
+          Request a new reset link
+        </Button>
+      </div>
+    );
+  }
 
   if (success) {
     return (

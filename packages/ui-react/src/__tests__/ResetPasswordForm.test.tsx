@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ResetPasswordForm } from '../auth/ResetPasswordForm';
@@ -193,5 +193,194 @@ describe('ResetPasswordForm', () => {
 
     const button = screen.getByRole('button', { name: /reset password/i });
     expect(button).not.toBeDisabled();
+  });
+
+  describe('missing token behavior', () => {
+    it('should show invalid link error when authClient is provided but token is missing', () => {
+      const mockAuthClient = {
+        resetPassword: vi.fn(),
+        getState: vi.fn().mockReturnValue({ isLoading: false }),
+        subscribe: vi.fn().mockReturnValue(() => {}),
+      } as unknown as AuthClient;
+
+      render(<ResetPasswordForm authClient={mockAuthClient} />);
+
+      expect(screen.getByText(/invalid or missing/i)).toBeInTheDocument();
+      expect(screen.queryByLabelText('New Password')).not.toBeInTheDocument();
+    });
+
+    it('should show request new link button when token is missing', () => {
+      const mockAuthClient = {
+        resetPassword: vi.fn(),
+        getState: vi.fn().mockReturnValue({ isLoading: false }),
+        subscribe: vi.fn().mockReturnValue(() => {}),
+      } as unknown as AuthClient;
+
+      render(<ResetPasswordForm authClient={mockAuthClient} />);
+
+      expect(screen.getByRole('button', { name: /request a new reset link/i })).toBeInTheDocument();
+    });
+
+    it('should navigate to /forgot-password by default when request new link is clicked', async () => {
+      const mockAuthClient = {
+        resetPassword: vi.fn(),
+        getState: vi.fn().mockReturnValue({ isLoading: false }),
+        subscribe: vi.fn().mockReturnValue(() => {}),
+      } as unknown as AuthClient;
+
+      render(<ResetPasswordForm authClient={mockAuthClient} />);
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole('button', { name: /request a new reset link/i }));
+
+      expect(window.location.pathname).toBe('/forgot-password');
+    });
+
+    it('should use custom onRequestNewLink when provided', async () => {
+      const mockOnRequestNewLink = vi.fn();
+      const mockAuthClient = {
+        resetPassword: vi.fn(),
+        getState: vi.fn().mockReturnValue({ isLoading: false }),
+        subscribe: vi.fn().mockReturnValue(() => {}),
+      } as unknown as AuthClient;
+
+      render(<ResetPasswordForm authClient={mockAuthClient} onRequestNewLink={mockOnRequestNewLink} />);
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole('button', { name: /request a new reset link/i }));
+
+      expect(mockOnRequestNewLink).toHaveBeenCalled();
+    });
+
+    it('should show form normally when token is empty string but onSubmit is provided', () => {
+      render(<ResetPasswordForm onSubmit={vi.fn()} token="" />);
+
+      expect(screen.getByLabelText('New Password')).toBeInTheDocument();
+      expect(screen.queryByText(/invalid or missing/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('URL token retrieval', () => {
+    const originalLocation = window.location;
+
+    beforeEach(() => {
+      // @ts-expect-error - mocking window.location
+      delete window.location;
+      window.location = { ...originalLocation, search: '' };
+    });
+
+    afterEach(() => {
+      window.location = originalLocation;
+    });
+
+    it('should read token from URL when token prop is not provided', async () => {
+      window.location.search = '?token=url-token-123';
+      const mockResetPassword = vi.fn().mockResolvedValue(undefined);
+      const mockAuthClient = {
+        resetPassword: mockResetPassword,
+        getState: vi.fn().mockReturnValue({ isLoading: false }),
+        subscribe: vi.fn().mockReturnValue(() => {}),
+      } as unknown as AuthClient;
+
+      render(<ResetPasswordForm authClient={mockAuthClient} />);
+      const user = userEvent.setup();
+
+      // Form should be shown (token was read from URL)
+      expect(screen.getByLabelText('New Password')).toBeInTheDocument();
+
+      await user.type(screen.getByLabelText('New Password'), 'Password123');
+      await user.type(screen.getByLabelText('Confirm New Password'), 'Password123');
+      await user.click(screen.getByRole('button', { name: /reset password/i }));
+
+      await waitFor(() => {
+        expect(mockResetPassword).toHaveBeenCalledWith('url-token-123', 'Password123');
+      });
+    });
+
+    it('should prefer token prop over URL token when both are provided', async () => {
+      window.location.search = '?token=url-token';
+      const mockResetPassword = vi.fn().mockResolvedValue(undefined);
+      const mockAuthClient = {
+        resetPassword: mockResetPassword,
+        getState: vi.fn().mockReturnValue({ isLoading: false }),
+        subscribe: vi.fn().mockReturnValue(() => {}),
+      } as unknown as AuthClient;
+
+      render(<ResetPasswordForm authClient={mockAuthClient} token="prop-token" />);
+      const user = userEvent.setup();
+
+      await user.type(screen.getByLabelText('New Password'), 'Password123');
+      await user.type(screen.getByLabelText('Confirm New Password'), 'Password123');
+      await user.click(screen.getByRole('button', { name: /reset password/i }));
+
+      await waitFor(() => {
+        expect(mockResetPassword).toHaveBeenCalledWith('prop-token', 'Password123');
+      });
+    });
+
+    it('should show error UI when no token in URL and no token prop', () => {
+      window.location.search = '';
+      const mockAuthClient = {
+        resetPassword: vi.fn(),
+        getState: vi.fn().mockReturnValue({ isLoading: false }),
+        subscribe: vi.fn().mockReturnValue(() => {}),
+      } as unknown as AuthClient;
+
+      render(<ResetPasswordForm authClient={mockAuthClient} />);
+
+      expect(screen.getByText(/invalid or missing/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('default onSuccess behavior', () => {
+    it('should call default onSuccess with setTimeout when no onSuccess provided', async () => {
+      const setTimeoutSpy = vi.spyOn(global, 'setTimeout');
+      const mockResetPassword = vi.fn().mockResolvedValue(undefined);
+      const mockAuthClient = {
+        resetPassword: mockResetPassword,
+        getState: vi.fn().mockReturnValue({ isLoading: false }),
+        subscribe: vi.fn().mockReturnValue(() => {}),
+      } as unknown as AuthClient;
+
+      render(<ResetPasswordForm authClient={mockAuthClient} token="test-token" />);
+      const user = userEvent.setup();
+
+      await user.type(screen.getByLabelText('New Password'), 'Password123');
+      await user.type(screen.getByLabelText('Confirm New Password'), 'Password123');
+      await user.click(screen.getByRole('button', { name: /reset password/i }));
+
+      // Wait for success state
+      await waitFor(() => {
+        expect(screen.getByText(/password has been reset/i)).toBeInTheDocument();
+      });
+
+      // Verify setTimeout was called with 3000ms delay for the default onSuccess
+      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 3000);
+      setTimeoutSpy.mockRestore();
+    });
+
+    it('should use custom onSuccess instead of default when provided', async () => {
+      const mockResetPassword = vi.fn().mockResolvedValue(undefined);
+      const mockOnSuccess = vi.fn();
+      const mockAuthClient = {
+        resetPassword: mockResetPassword,
+        getState: vi.fn().mockReturnValue({ isLoading: false }),
+        subscribe: vi.fn().mockReturnValue(() => {}),
+      } as unknown as AuthClient;
+
+      render(<ResetPasswordForm authClient={mockAuthClient} token="test-token" onSuccess={mockOnSuccess} />);
+      const user = userEvent.setup();
+
+      await user.type(screen.getByLabelText('New Password'), 'Password123');
+      await user.type(screen.getByLabelText('Confirm New Password'), 'Password123');
+      await user.click(screen.getByRole('button', { name: /reset password/i }));
+
+      await waitFor(() => {
+        expect(mockOnSuccess).toHaveBeenCalled();
+      });
+
+      // Verify custom onSuccess was called
+      expect(mockOnSuccess).toHaveBeenCalledTimes(1);
+    });
   });
 });

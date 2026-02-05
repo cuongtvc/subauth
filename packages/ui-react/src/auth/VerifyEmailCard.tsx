@@ -26,6 +26,21 @@ const defaultOnResend = () => {
   window.location.pathname = '/resend-verification';
 };
 
+const getTokenFromUrl = (): string | undefined => {
+  // Try search params first (e.g., ?token=abc)
+  const searchParams = new URLSearchParams(window.location.search);
+  const searchToken = searchParams.get('token');
+  if (searchToken) return searchToken;
+
+  // Try pathname (e.g., /verify-email/abc)
+  const pathParts = window.location.pathname.split('/').filter(Boolean);
+  if (pathParts.length >= 2) {
+    return pathParts[pathParts.length - 1];
+  }
+
+  return undefined;
+};
+
 export function VerifyEmailCard({
   status: statusProp,
   authClient,
@@ -37,8 +52,15 @@ export function VerifyEmailCard({
   error: errorProp,
   className,
 }: VerifyEmailCardProps) {
-  const [internalStatus, setInternalStatus] = useState<'verifying' | 'success' | 'error' | 'expired'>('verifying');
-  const [internalError, setInternalError] = useState<string | null>(null);
+  // Resolve token: prefer prop, fallback to URL
+  const resolvedToken = token ?? getTokenFromUrl();
+
+  const [internalStatus, setInternalStatus] = useState<'verifying' | 'success' | 'error' | 'expired'>(
+    authClient && !resolvedToken ? 'error' : 'verifying'
+  );
+  const [internalError, setInternalError] = useState<string | null>(
+    authClient && !resolvedToken ? 'Invalid or missing verification token' : null
+  );
 
   const status = statusProp ?? internalStatus;
   const error = errorProp ?? internalError;
@@ -46,10 +68,10 @@ export function VerifyEmailCard({
   const onResend = onResendProp ?? (authClient ? defaultOnResend : undefined);
 
   useEffect(() => {
-    if (authClient && token && !statusProp) {
+    if (authClient && resolvedToken && !statusProp) {
       const verify = async () => {
         try {
-          await authClient.verifyEmail(token);
+          await authClient.verifyEmail(resolvedToken);
           setInternalStatus('success');
         } catch (err) {
           setInternalStatus('error');
@@ -58,7 +80,7 @@ export function VerifyEmailCard({
       };
       verify();
     }
-  }, [authClient, token, statusProp]);
+  }, [authClient, resolvedToken, statusProp]);
   return (
     <Card padding="lg" shadow="md" className={cn('subauth-verify-email-card', className)}>
       <CardHeader>

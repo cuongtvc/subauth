@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { VerifyEmailCard } from '../auth/VerifyEmailCard';
@@ -139,5 +139,82 @@ describe('VerifyEmailCard', () => {
     await user.click(screen.getByRole('button', { name: /resend/i }));
 
     expect(window.location.pathname).toBe('/resend-verification');
+  });
+
+  describe('URL token retrieval', () => {
+    const originalLocation = window.location;
+
+    beforeEach(() => {
+      // @ts-expect-error - mocking window.location
+      delete window.location;
+      window.location = { ...originalLocation, pathname: '/', search: '' };
+    });
+
+    afterEach(() => {
+      window.location = originalLocation;
+    });
+
+    it('should read token from URL pathname when token prop is not provided', async () => {
+      window.location.pathname = '/verify-email/url-token-456';
+      const mockVerifyEmail = vi.fn().mockResolvedValue(undefined);
+      const mockAuthClient = {
+        verifyEmail: mockVerifyEmail,
+        getState: vi.fn().mockReturnValue({ isLoading: false }),
+        subscribe: vi.fn().mockReturnValue(() => {}),
+      } as unknown as AuthClient;
+
+      render(<VerifyEmailCard authClient={mockAuthClient} />);
+
+      await waitFor(() => {
+        expect(mockVerifyEmail).toHaveBeenCalledWith('url-token-456');
+      });
+    });
+
+    it('should read token from URL search params when token prop is not provided', async () => {
+      window.location.search = '?token=search-token-789';
+      const mockVerifyEmail = vi.fn().mockResolvedValue(undefined);
+      const mockAuthClient = {
+        verifyEmail: mockVerifyEmail,
+        getState: vi.fn().mockReturnValue({ isLoading: false }),
+        subscribe: vi.fn().mockReturnValue(() => {}),
+      } as unknown as AuthClient;
+
+      render(<VerifyEmailCard authClient={mockAuthClient} />);
+
+      await waitFor(() => {
+        expect(mockVerifyEmail).toHaveBeenCalledWith('search-token-789');
+      });
+    });
+
+    it('should prefer token prop over URL token when both are provided', async () => {
+      window.location.pathname = '/verify-email/url-token';
+      const mockVerifyEmail = vi.fn().mockResolvedValue(undefined);
+      const mockAuthClient = {
+        verifyEmail: mockVerifyEmail,
+        getState: vi.fn().mockReturnValue({ isLoading: false }),
+        subscribe: vi.fn().mockReturnValue(() => {}),
+      } as unknown as AuthClient;
+
+      render(<VerifyEmailCard authClient={mockAuthClient} token="prop-token" />);
+
+      await waitFor(() => {
+        expect(mockVerifyEmail).toHaveBeenCalledWith('prop-token');
+      });
+    });
+
+    it('should show error state when no token in URL and no token prop', () => {
+      window.location.pathname = '/verify-email';
+      window.location.search = '';
+      const mockAuthClient = {
+        verifyEmail: vi.fn(),
+        getState: vi.fn().mockReturnValue({ isLoading: false }),
+        subscribe: vi.fn().mockReturnValue(() => {}),
+      } as unknown as AuthClient;
+
+      render(<VerifyEmailCard authClient={mockAuthClient} />);
+
+      expect(screen.getByText(/verification failed/i)).toBeInTheDocument();
+      expect(screen.getByText(/invalid or missing/i)).toBeInTheDocument();
+    });
   });
 });
