@@ -45,7 +45,7 @@ function createMockDatabaseAdapter(): DatabaseAdapter {
     async getUserById(id: string): Promise<User | null> {
       const user = users.get(id);
       if (!user) return null;
-      return { id: user.id, email: user.email, emailVerified: user.emailVerified, createdAt: user.createdAt };
+      return { id: user.id, email: user.email, emailVerified: user.emailVerified, createdAt: user.createdAt, providerCustomerId: user.providerCustomerId };
     },
 
     async getUserByEmail(email: string): Promise<User | null> {
@@ -444,6 +444,205 @@ describe('Subscription Handlers - Get Subscription', () => {
     const response = await handlers.getSubscription(request);
 
     expect(response.status).toBe(401);
+  });
+
+  it('should return tier derived from active PRO subscription', async () => {
+    const user = await db.getUserByEmail('test@example.com');
+    await db.createSubscription({
+      userId: user!.id,
+      planId: 'PRO_MONTHLY',
+      priceId: 'price_pro_monthly',
+      status: 'active',
+      billingCycle: 'monthly',
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      cancelAtPeriodEnd: false,
+      providerSubscriptionId: 'sub_123',
+      providerCustomerId: 'cus_123',
+    });
+
+    const request: AuthRequest = {
+      method: 'GET',
+      path: '/subscription',
+      body: {},
+      headers: { authorization: `Bearer ${token}` },
+    };
+
+    const response = await handlers.getSubscription(request);
+
+    expect(response.status).toBe(200);
+    expect(response.body.tier).toBe('PRO');
+  });
+
+  it('should return tier derived from active TEAM subscription', async () => {
+    const user = await db.getUserByEmail('test@example.com');
+    await db.createSubscription({
+      userId: user!.id,
+      planId: 'TEAM_YEARLY',
+      priceId: 'price_team_yearly',
+      status: 'active',
+      billingCycle: 'annual',
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      cancelAtPeriodEnd: false,
+      providerSubscriptionId: 'sub_456',
+      providerCustomerId: 'cus_456',
+    });
+
+    const request: AuthRequest = {
+      method: 'GET',
+      path: '/subscription',
+      body: {},
+      headers: { authorization: `Bearer ${token}` },
+    };
+
+    const response = await handlers.getSubscription(request);
+
+    expect(response.status).toBe(200);
+    expect(response.body.tier).toBe('TEAM');
+  });
+
+  it('should return FREE tier when no subscription exists', async () => {
+    const request: AuthRequest = {
+      method: 'GET',
+      path: '/subscription',
+      body: {},
+      headers: { authorization: `Bearer ${token}` },
+    };
+
+    const response = await handlers.getSubscription(request);
+
+    expect(response.status).toBe(200);
+    expect(response.body.tier).toBe('FREE');
+  });
+
+  it('should return FREE tier for cancelled subscription', async () => {
+    const user = await db.getUserByEmail('test@example.com');
+    await db.createSubscription({
+      userId: user!.id,
+      planId: 'PRO_MONTHLY',
+      priceId: 'price_pro_monthly',
+      status: 'canceled',
+      billingCycle: 'monthly',
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      cancelAtPeriodEnd: true,
+      providerSubscriptionId: 'sub_789',
+      providerCustomerId: 'cus_789',
+    });
+
+    const request: AuthRequest = {
+      method: 'GET',
+      path: '/subscription',
+      body: {},
+      headers: { authorization: `Bearer ${token}` },
+    };
+
+    const response = await handlers.getSubscription(request);
+
+    expect(response.status).toBe(200);
+    expect(response.body.tier).toBe('FREE');
+  });
+
+  it('should return PRO tier for valid trialing subscription', async () => {
+    const user = await db.getUserByEmail('test@example.com');
+    await db.createSubscription({
+      userId: user!.id,
+      planId: 'PRO_MONTHLY',
+      priceId: 'price_pro_monthly',
+      status: 'trialing',
+      billingCycle: 'monthly',
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      cancelAtPeriodEnd: false,
+      providerSubscriptionId: 'sub_trial',
+      providerCustomerId: 'cus_trial',
+      trialEndDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+    });
+
+    const request: AuthRequest = {
+      method: 'GET',
+      path: '/subscription',
+      body: {},
+      headers: { authorization: `Bearer ${token}` },
+    };
+
+    const response = await handlers.getSubscription(request);
+
+    expect(response.status).toBe(200);
+    expect(response.body.tier).toBe('PRO');
+  });
+
+  it('should return FREE tier for expired trial', async () => {
+    const user = await db.getUserByEmail('test@example.com');
+    await db.createSubscription({
+      userId: user!.id,
+      planId: 'PRO_MONTHLY',
+      priceId: 'price_pro_monthly',
+      status: 'trialing',
+      billingCycle: 'monthly',
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      cancelAtPeriodEnd: false,
+      providerSubscriptionId: 'sub_expired_trial',
+      providerCustomerId: 'cus_expired_trial',
+      trialEndDate: new Date(Date.now() - 1000), // Expired
+    });
+
+    const request: AuthRequest = {
+      method: 'GET',
+      path: '/subscription',
+      body: {},
+      headers: { authorization: `Bearer ${token}` },
+    };
+
+    const response = await handlers.getSubscription(request);
+
+    expect(response.status).toBe(200);
+    expect(response.body.tier).toBe('FREE');
+  });
+
+  it('should return hasProviderCustomerId true when user has provider customer ID', async () => {
+    const user = await db.getUserByEmail('test@example.com');
+    await db.setProviderCustomerId(user!.id, 'cus_123');
+    await db.createSubscription({
+      userId: user!.id,
+      planId: 'PRO_MONTHLY',
+      priceId: 'price_pro_monthly',
+      status: 'active',
+      billingCycle: 'monthly',
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      cancelAtPeriodEnd: false,
+      providerSubscriptionId: 'sub_123',
+      providerCustomerId: 'cus_123',
+    });
+
+    const request: AuthRequest = {
+      method: 'GET',
+      path: '/subscription',
+      body: {},
+      headers: { authorization: `Bearer ${token}` },
+    };
+
+    const response = await handlers.getSubscription(request);
+
+    expect(response.status).toBe(200);
+    expect(response.body.hasProviderCustomerId).toBe(true);
+  });
+
+  it('should return hasProviderCustomerId false when user has no provider customer ID', async () => {
+    const request: AuthRequest = {
+      method: 'GET',
+      path: '/subscription',
+      body: {},
+      headers: { authorization: `Bearer ${token}` },
+    };
+
+    const response = await handlers.getSubscription(request);
+
+    expect(response.status).toBe(200);
+    expect(response.body.hasProviderCustomerId).toBe(false);
   });
 });
 

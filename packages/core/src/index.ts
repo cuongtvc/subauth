@@ -14,6 +14,8 @@ export interface User {
   tier?: string;
   /** Optional admin flag. Included in JWT if present. */
   isAdmin?: boolean;
+  /** Optional payment provider customer ID (e.g., Paddle/Stripe customer ID). */
+  providerCustomerId?: string;
 }
 
 export interface AuthTokens {

@@ -407,90 +407,130 @@ function createRouter(
 ): Router {
   const router = Router();
 
-  // Mount auth routes
+  // Mount auth routes at root
   router.use('/', createAuthRouter(authHandlers));
 
-  // ============================================
-  // SUBSCRIPTION ROUTES (if configured)
-  // ============================================
-
+  // Mount subscription routes at /subscription
   if (subscriptionHandlers) {
-    // GET /plans
-    router.get('/plans', asyncHandler(async (req, res) => {
-      const result = await subscriptionHandlers.getPlans({
-        method: req.method,
-        path: req.path,
-        body: req.body,
-        headers: flattenHeaders(req.headers),
-        params: req.params,
-      });
-      res.status(result.status).json(result.body);
-    }));
-
-    // POST /checkout
-    router.post('/checkout', asyncHandler(async (req, res) => {
-      const result = await subscriptionHandlers.createCheckout({
-        method: req.method,
-        path: req.path,
-        body: req.body,
-        headers: flattenHeaders(req.headers),
-        params: req.params,
-      });
-      res.status(result.status).json(result.body);
-    }));
-
-    // GET /subscription
-    router.get('/subscription', asyncHandler(async (req, res) => {
-      const result = await subscriptionHandlers.getSubscription({
-        method: req.method,
-        path: req.path,
-        body: req.body,
-        headers: flattenHeaders(req.headers),
-        params: req.params,
-      });
-      res.status(result.status).json(result.body);
-    }));
-
-    // POST /subscription/cancel
-    router.post('/subscription/cancel', asyncHandler(async (req, res) => {
-      const result = await subscriptionHandlers.cancelSubscription({
-        method: req.method,
-        path: req.path,
-        body: req.body,
-        headers: flattenHeaders(req.headers),
-        params: req.params,
-      });
-      res.status(result.status).json(result.body);
-    }));
-
-    // POST /subscription/resume
-    router.post('/subscription/resume', asyncHandler(async (req, res) => {
-      const result = await subscriptionHandlers.resumeSubscription({
-        method: req.method,
-        path: req.path,
-        body: req.body,
-        headers: flattenHeaders(req.headers),
-        params: req.params,
-      });
-      res.status(result.status).json(result.body);
-    }));
-
-    // POST /webhook - needs raw body for signature verification
-    router.post('/webhook', raw({ type: 'application/json' }), asyncHandler(async (req, res) => {
-      const rawBody = req.body as Buffer;
-      const result = await subscriptionHandlers.webhook(
-        {
-          method: req.method,
-          path: req.path,
-          body: JSON.parse(rawBody.toString()),
-          headers: flattenHeaders(req.headers),
-          params: req.params,
-        },
-        rawBody
-      );
-      res.status(result.status).json(result.body);
-    }));
+    router.use('/subscription', createSubscriptionRouter(subscriptionHandlers));
   }
+
+  return router;
+}
+
+/**
+ * Create subscription router with all subscription management routes.
+ * Use this when you want to mount subscription routes separately and handle
+ * authentication middleware yourself.
+ *
+ * Routes created (standalone paths, designed to be mounted at /subscription):
+ * - GET /plans - Get available subscription plans
+ * - POST /checkout - Create checkout session
+ * - GET /status - Get current subscription status
+ * - POST /cancel - Cancel subscription
+ * - POST /resume - Resume cancelled subscription
+ * - POST /webhook - Handle payment provider webhooks (needs raw body)
+ *
+ * NOTE: Authentication should be handled by middleware before routes that
+ * require it (checkout, status, cancel, resume).
+ *
+ * @example
+ * ```typescript
+ * import { Router } from 'express';
+ * import { createSubscriptionRouter } from '@subauth/express';
+ * import { subscriptionHandlers } from './lib/subauth';
+ * import { authenticate } from './middleware/auth';
+ *
+ * const router = Router();
+ * router.use('/', createSubscriptionRouter(subscriptionHandlers));
+ *
+ * export { router as subscriptionRouter };
+ * ```
+ */
+function createSubscriptionRouter(
+  subscriptionHandlers: ReturnType<typeof createSubscriptionHandlers>
+): Router {
+  const router = Router();
+
+  // JSON body parser for non-webhook routes only
+  // (webhook needs raw body for signature verification)
+  const jsonParser = json();
+
+  // GET /plans
+  router.get('/plans', jsonParser, asyncHandler(async (req, res) => {
+    const result = await subscriptionHandlers.getPlans({
+      method: req.method,
+      path: req.path,
+      body: req.body,
+      headers: flattenHeaders(req.headers),
+      params: req.params,
+    });
+    res.status(result.status).json(result.body);
+  }));
+
+  // POST /checkout
+  router.post('/checkout', jsonParser, asyncHandler(async (req, res) => {
+    const result = await subscriptionHandlers.createCheckout({
+      method: req.method,
+      path: req.path,
+      body: req.body,
+      headers: flattenHeaders(req.headers),
+      params: req.params,
+    });
+    res.status(result.status).json(result.body);
+  }));
+
+  // GET /status
+  router.get('/status', jsonParser, asyncHandler(async (req, res) => {
+    const result = await subscriptionHandlers.getSubscription({
+      method: req.method,
+      path: req.path,
+      body: req.body,
+      headers: flattenHeaders(req.headers),
+      params: req.params,
+    });
+    res.status(result.status).json(result.body);
+  }));
+
+  // POST /cancel
+  router.post('/cancel', jsonParser, asyncHandler(async (req, res) => {
+    const result = await subscriptionHandlers.cancelSubscription({
+      method: req.method,
+      path: req.path,
+      body: req.body,
+      headers: flattenHeaders(req.headers),
+      params: req.params,
+    });
+    res.status(result.status).json(result.body);
+  }));
+
+  // POST /resume
+  router.post('/resume', jsonParser, asyncHandler(async (req, res) => {
+    const result = await subscriptionHandlers.resumeSubscription({
+      method: req.method,
+      path: req.path,
+      body: req.body,
+      headers: flattenHeaders(req.headers),
+      params: req.params,
+    });
+    res.status(result.status).json(result.body);
+  }));
+
+  // POST /webhook - needs raw body for signature verification
+  router.post('/webhook', raw({ type: 'application/json' }), asyncHandler(async (req, res) => {
+    const rawBody = req.body as Buffer;
+    const result = await subscriptionHandlers.webhook(
+      {
+        method: req.method,
+        path: req.path,
+        body: JSON.parse(rawBody.toString()),
+        headers: flattenHeaders(req.headers),
+        params: req.params,
+      },
+      rawBody
+    );
+    res.status(result.status).json(result.body);
+  }));
 
   return router;
 }
@@ -578,4 +618,4 @@ export type { AppError, ErrorMiddleware } from './middleware/error';
 
 // Router factory exports - useful when you want to mount routes separately
 // Can be omitted when using createSubAuth (which includes routers)
-export { createAuthRouter, createAdminRouter };
+export { createAuthRouter, createAdminRouter, createSubscriptionRouter };

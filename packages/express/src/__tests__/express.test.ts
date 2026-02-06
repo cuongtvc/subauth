@@ -51,7 +51,7 @@ vi.mock('@subauth/backend', () => ({
 }));
 
 // Import after mocks are set up
-import { createSubAuth, createAuthRouter } from '../index';
+import { createSubAuth, createAuthRouter, createSubscriptionRouter } from '../index';
 import type { SubAuthConfig } from '../index';
 import { PrismaAdapter } from '@subauth/adapter-prisma';
 import { SESEmailAdapter } from '@subauth/adapter-ses';
@@ -280,10 +280,10 @@ describe('SubAuth Express Router', () => {
 
       const routes = getRouterPaths(subauth.router);
 
-      expect(routes).not.toContain('GET /plans');
-      expect(routes).not.toContain('POST /checkout');
-      expect(routes).not.toContain('GET /subscription');
-      expect(routes).not.toContain('POST /webhook');
+      expect(routes).not.toContain('GET /subscription/plans');
+      expect(routes).not.toContain('POST /subscription/checkout');
+      expect(routes).not.toContain('GET /subscription/status');
+      expect(routes).not.toContain('POST /subscription/webhook');
     });
 
     it('should have subscription routes when payment is configured', () => {
@@ -292,12 +292,12 @@ describe('SubAuth Express Router', () => {
 
       const routes = getRouterPaths(subauth.router);
 
-      expect(routes).toContain('GET /plans');
-      expect(routes).toContain('POST /checkout');
-      expect(routes).toContain('GET /subscription');
+      expect(routes).toContain('GET /subscription/plans');
+      expect(routes).toContain('POST /subscription/checkout');
+      expect(routes).toContain('GET /subscription/status');
       expect(routes).toContain('POST /subscription/cancel');
       expect(routes).toContain('POST /subscription/resume');
-      expect(routes).toContain('POST /webhook');
+      expect(routes).toContain('POST /subscription/webhook');
     });
   });
 });
@@ -326,7 +326,14 @@ function getRouterPaths(router: any, basePath: string = ''): string[] {
         }
       } else if (layer.name === 'router' && layer.handle?.stack) {
         // Mounted sub-router - recursively extract paths
-        const mountPath = layer.regexp?.source === '^\\/?$' ? '' : (layer.path || '');
+        // Extract mount path from regexp (e.g., /subscription from ^\\/subscription\\/?(?=\\/|$))
+        let mountPath = '';
+        if (layer.regexp) {
+          const match = layer.regexp.source.match(/^\^\\\/([^\\/?]+)/);
+          if (match) {
+            mountPath = '/' + match[1];
+          }
+        }
         const subPaths = getRouterPaths(layer.handle, basePath + mountPath);
         paths.push(...subPaths);
       }
@@ -396,6 +403,69 @@ describe('createAuthRouter', () => {
       ?? (createAuthHandlers as any)();
 
     const router = createAuthRouter(mockAuthHandlers);
+    const routes = getRouterPaths(router);
+
+    expect(routes).not.toContain('GET /users');
+    expect(routes).not.toContain('PATCH /users/:userId/tier');
+  });
+});
+
+// ============================================
+// TESTS: createSubscriptionRouter factory function
+// ============================================
+
+describe('createSubscriptionRouter', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should be exported from the module', () => {
+    expect(createSubscriptionRouter).toBeDefined();
+    expect(typeof createSubscriptionRouter).toBe('function');
+  });
+
+  it('should return an Express router', () => {
+    const mockSubscriptionHandlers = (createSubscriptionHandlers as ReturnType<typeof vi.fn>).mock.results[0]?.value
+      ?? (createSubscriptionHandlers as any)();
+
+    const router = createSubscriptionRouter(mockSubscriptionHandlers);
+
+    expect(typeof router).toBe('function');
+  });
+
+  it('should have all subscription routes registered', () => {
+    const mockSubscriptionHandlers = (createSubscriptionHandlers as ReturnType<typeof vi.fn>).mock.results[0]?.value
+      ?? (createSubscriptionHandlers as any)();
+
+    const router = createSubscriptionRouter(mockSubscriptionHandlers);
+    const routes = getRouterPaths(router);
+
+    // Standalone paths (designed to be mounted at /subscription)
+    expect(routes).toContain('GET /plans');
+    expect(routes).toContain('POST /checkout');
+    expect(routes).toContain('GET /status');
+    expect(routes).toContain('POST /cancel');
+    expect(routes).toContain('POST /resume');
+    expect(routes).toContain('POST /webhook');
+  });
+
+  it('should NOT have auth routes', () => {
+    const mockSubscriptionHandlers = (createSubscriptionHandlers as ReturnType<typeof vi.fn>).mock.results[0]?.value
+      ?? (createSubscriptionHandlers as any)();
+
+    const router = createSubscriptionRouter(mockSubscriptionHandlers);
+    const routes = getRouterPaths(router);
+
+    expect(routes).not.toContain('POST /register');
+    expect(routes).not.toContain('POST /login');
+    expect(routes).not.toContain('GET /me');
+  });
+
+  it('should NOT have admin routes', () => {
+    const mockSubscriptionHandlers = (createSubscriptionHandlers as ReturnType<typeof vi.fn>).mock.results[0]?.value
+      ?? (createSubscriptionHandlers as any)();
+
+    const router = createSubscriptionRouter(mockSubscriptionHandlers);
     const routes = getRouterPaths(router);
 
     expect(routes).not.toContain('GET /users');

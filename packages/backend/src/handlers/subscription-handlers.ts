@@ -1,10 +1,55 @@
 import type { AuthRequest, AuthResponse } from './types';
 import { SubscriptionService, type SubscriptionServiceConfig } from '../subscription-service';
 import { AuthService } from '../auth-service';
-import { SubscriptionError, type AuthConfig } from '@subauth/core';
+import { SubscriptionError, type AuthConfig, type Subscription } from '@subauth/core';
 
 export interface SubscriptionHandlersConfig extends SubscriptionServiceConfig {
   authConfig: AuthConfig;
+  /**
+   * Function to derive tier from subscription planId.
+   * Default: extracts tier prefix from planId (e.g., PRO_MONTHLY -> PRO)
+   */
+  planToTier?: (planId: string) => string;
+}
+
+/**
+ * Default function to derive tier from planId.
+ * Extracts the tier prefix (e.g., PRO_MONTHLY -> PRO, TEAM_YEARLY -> TEAM)
+ */
+function defaultPlanToTier(planId: string): string {
+  const upperPlanId = planId.toUpperCase();
+  if (upperPlanId.startsWith('TEAM')) return 'TEAM';
+  if (upperPlanId.startsWith('PRO')) return 'PRO';
+  return 'FREE';
+}
+
+/**
+ * Check if a subscription is valid (active or in valid trial).
+ */
+function isSubscriptionValid(subscription: Subscription | null): boolean {
+  if (!subscription) return false;
+
+  if (subscription.status === 'active') return true;
+
+  if (subscription.status === 'trialing') {
+    if (!subscription.trialEndDate) return true; // No end date means valid
+    return subscription.trialEndDate > new Date();
+  }
+
+  return false;
+}
+
+/**
+ * Derive tier from subscription.
+ */
+function deriveTierFromSubscription(
+  subscription: Subscription | null,
+  planToTier: (planId: string) => string
+): string {
+  if (!subscription || !isSubscriptionValid(subscription)) {
+    return 'FREE';
+  }
+  return planToTier(subscription.planId);
 }
 
 export function createSubscriptionHandlers(config: SubscriptionHandlersConfig) {
@@ -100,10 +145,16 @@ export function createSubscriptionHandlers(config: SubscriptionHandlersConfig) {
         }
 
         const subscription = await subscriptionService.getSubscription(user.id);
+        const planToTier = config.planToTier ?? defaultPlanToTier;
+        const tier = deriveTierFromSubscription(subscription, planToTier);
+
+        // Get full user from database to check for provider customer ID
+        const fullUser = await config.database.getUserById(user.id);
+        const hasProviderCustomerId = !!fullUser?.providerCustomerId;
 
         return {
           status: 200,
-          body: { subscription },
+          body: { subscription, tier, hasProviderCustomerId },
         };
       } catch (error) {
         return {
