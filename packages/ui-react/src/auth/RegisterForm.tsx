@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { validateEmail, validatePassword, validateMatch, cn } from '@subauth/ui-core';
 import type { AuthClient, RegisterResult } from '@subauth/client';
 import { FormField } from '../primitives/FormField';
@@ -6,8 +6,18 @@ import { Button } from '../primitives/Button';
 import { Alert } from '../primitives/Alert';
 import { useAuthClientLoading } from '../hooks/useAuthClientLoading';
 
+/**
+ * Get the plan parameter from the current URL search params.
+ * Uses native URLSearchParams API for framework-agnostic URL parsing.
+ */
+function getPlanFromUrl(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  const params = new URLSearchParams(window.location.search);
+  return params.get('plan') ?? undefined;
+}
+
 export interface RegisterFormProps {
-  onSubmit?: (data: { email: string; password: string; name?: string }) => void | Promise<void>;
+  onSubmit?: (data: { email: string; password: string; name?: string; plan?: string }) => void | Promise<void>;
   authClient?: AuthClient;
   onSuccess?: (result: RegisterResult) => void | Promise<void>;
   loading?: boolean;
@@ -15,6 +25,8 @@ export interface RegisterFormProps {
   onSignIn?: () => void;
   showNameField?: boolean;
   className?: string;
+  /** Optional plan for trial registration (e.g., 'pro' from URL ?plan=pro) */
+  plan?: string;
 }
 
 const defaultOnSignIn = () => {
@@ -30,6 +42,7 @@ export function RegisterForm({
   onSignIn = defaultOnSignIn,
   showNameField = false,
   className,
+  plan,
 }: RegisterFormProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -46,6 +59,12 @@ export function RegisterForm({
 
   const authClientLoading = useAuthClientLoading(authClient);
   const loading = loadingProp ?? authClientLoading;
+
+  // Use plan prop if provided, otherwise read from URL
+  const effectivePlan = useMemo(() => {
+    if (plan !== undefined) return plan ?? undefined;
+    return getPlanFromUrl();
+  }, [plan]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,10 +93,10 @@ export function RegisterForm({
 
     setErrors({});
     if (onSubmitProp) {
-      await onSubmitProp({ email, password, name: showNameField ? name : undefined });
+      await onSubmitProp({ email, password, name: showNameField ? name : undefined, plan: effectivePlan });
     } else if (authClient) {
       try {
-        const result = await authClient.register({ email, password });
+        const result = await authClient.register({ email, password, plan: effectivePlan });
         if (onSuccess) {
           await onSuccess(result);
         } else {

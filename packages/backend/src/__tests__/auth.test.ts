@@ -1228,3 +1228,416 @@ describe('AuthService - Custom JWT Claims', () => {
     expect(decoded.userId).toBe(result.user.id);
   });
 });
+
+// ============================================
+// PRO TRIAL REGISTRATION TESTS
+// ============================================
+
+import { SubscriptionService } from '../subscription-service';
+import type { Subscription, SubscriptionConfig, PaymentAdapter } from '@subauth/core';
+
+function createMockDatabaseAdapterWithTier(): DatabaseAdapter & {
+  _users: Map<string, User & { passwordHash: string; tier?: string }>;
+} {
+  const users = new Map<string, User & { passwordHash: string; tier?: string }>();
+  const verificationTokens = new Map<string, { userId: string; expiresAt: Date }>();
+  const passwordResetTokens = new Map<string, { userId: string; expiresAt: Date }>();
+  const refreshTokens = new Map<string, { userId: string; expiresAt: Date }>();
+  const subscriptions = new Map<string, Subscription>();
+  let idCounter = 1;
+  let subIdCounter = 1;
+
+  return {
+    _users: users,
+
+    async createUser(email: string, passwordHash: string): Promise<User> {
+      const existing = Array.from(users.values()).find(u => u.email === email);
+      if (existing) throw new Error('User exists');
+
+      const user: User & { passwordHash: string; tier?: string } = {
+        id: String(idCounter++),
+        email,
+        passwordHash,
+        emailVerified: false,
+        createdAt: new Date(),
+        tier: undefined,
+      };
+      users.set(user.id, user);
+      return { id: user.id, email: user.email, emailVerified: user.emailVerified, createdAt: user.createdAt, tier: user.tier };
+    },
+
+    async getUserById(id: string): Promise<User | null> {
+      const user = users.get(id);
+      if (!user) return null;
+      return { id: user.id, email: user.email, emailVerified: user.emailVerified, createdAt: user.createdAt, tier: user.tier };
+    },
+
+    async getUserByEmail(email: string): Promise<User | null> {
+      const user = Array.from(users.values()).find(u => u.email === email);
+      if (!user) return null;
+      return { id: user.id, email: user.email, emailVerified: user.emailVerified, createdAt: user.createdAt, tier: user.tier };
+    },
+
+    async updateUser(id: string, updates: Partial<User>): Promise<User> {
+      const user = users.get(id);
+      if (!user) throw new Error('User not found');
+      Object.assign(user, updates);
+      return { id: user.id, email: user.email, emailVerified: user.emailVerified, createdAt: user.createdAt, tier: user.tier };
+    },
+
+    async getPasswordHash(userId: string): Promise<string | null> {
+      const user = users.get(userId);
+      return user?.passwordHash ?? null;
+    },
+
+    async setPasswordHash(userId: string, hash: string): Promise<void> {
+      const user = users.get(userId);
+      if (user) user.passwordHash = hash;
+    },
+
+    async setVerificationToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+      for (const [existingToken, data] of verificationTokens) {
+        if (data.userId === userId) verificationTokens.delete(existingToken);
+      }
+      verificationTokens.set(token, { userId, expiresAt });
+    },
+
+    async getUserByVerificationToken(token: string): Promise<User | null> {
+      const data = verificationTokens.get(token);
+      if (!data) return null;
+      if (data.expiresAt < new Date()) return null;
+      return this.getUserById(data.userId);
+    },
+
+    async clearVerificationToken(userId: string): Promise<void> {
+      for (const [token, data] of verificationTokens) {
+        if (data.userId === userId) verificationTokens.delete(token);
+      }
+    },
+
+    async setPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+      passwordResetTokens.set(token, { userId, expiresAt });
+    },
+
+    async getUserByPasswordResetToken(token: string): Promise<User | null> {
+      const data = passwordResetTokens.get(token);
+      if (!data) return null;
+      if (data.expiresAt < new Date()) return null;
+      return this.getUserById(data.userId);
+    },
+
+    async clearPasswordResetToken(userId: string): Promise<void> {
+      for (const [token, data] of passwordResetTokens) {
+        if (data.userId === userId) passwordResetTokens.delete(token);
+      }
+    },
+
+    async createRefreshToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+      refreshTokens.set(token, { userId, expiresAt });
+    },
+
+    async getRefreshToken(token: string): Promise<{ userId: string; expiresAt: Date } | null> {
+      const data = refreshTokens.get(token);
+      if (!data) return null;
+      if (data.expiresAt < new Date()) return null;
+      return data;
+    },
+
+    async deleteRefreshToken(token: string): Promise<void> {
+      refreshTokens.delete(token);
+    },
+
+    async deleteAllRefreshTokens(userId: string): Promise<void> {
+      for (const [token, data] of refreshTokens) {
+        if (data.userId === userId) refreshTokens.delete(token);
+      }
+    },
+
+    async createSubscription(subscription: Omit<Subscription, 'id' | 'createdAt' | 'updatedAt'>): Promise<Subscription> {
+      const sub: Subscription = {
+        ...subscription,
+        id: String(subIdCounter++),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      subscriptions.set(sub.id, sub);
+      return sub;
+    },
+
+    async getSubscriptionByUserId(userId: string): Promise<Subscription | null> {
+      for (const sub of subscriptions.values()) {
+        if (sub.userId === userId) return sub;
+      }
+      return null;
+    },
+
+    async getSubscriptionByProviderId(providerSubscriptionId: string): Promise<Subscription | null> {
+      for (const sub of subscriptions.values()) {
+        if (sub.providerSubscriptionId === providerSubscriptionId) return sub;
+      }
+      return null;
+    },
+
+    async updateSubscription(id: string, updates: Partial<Subscription>): Promise<Subscription> {
+      const sub = subscriptions.get(id);
+      if (!sub) throw new Error('Subscription not found');
+      Object.assign(sub, updates, { updatedAt: new Date() });
+      return sub;
+    },
+
+    async createTransaction() { throw new Error('Not implemented'); },
+    async getTransactionByProviderId() { return null; },
+    async setProviderCustomerId() {},
+    async getUserByProviderCustomerId() { return null; },
+  };
+}
+
+function createMockPaymentAdapter(): PaymentAdapter {
+  return {
+    providerName: 'mock',
+    async createCheckoutSession() {
+      return { url: 'https://checkout.example.com', sessionId: 'test-session' };
+    },
+    async cancelSubscription() {},
+    verifyWebhookSignature() { return true; },
+    parseWebhookEvent() {
+      return {
+        type: 'subscription.created' as const,
+        provider: 'mock',
+        data: {},
+        rawEvent: {},
+      };
+    },
+  };
+}
+
+function createTestSubscriptionConfig(): SubscriptionConfig {
+  return {
+    trialDays: 14,
+    plans: [
+      {
+        id: 'pro',
+        name: 'Pro',
+        features: ['Feature 1', 'Feature 2'],
+        prices: [
+          { id: 'price_pro_monthly', amount: 999, currency: 'USD', billingCycle: 'monthly' },
+        ],
+      },
+    ],
+  };
+}
+
+describe('AuthService - Pro Trial Registration', () => {
+  let db: ReturnType<typeof createMockDatabaseAdapterWithTier>;
+  let email: EmailAdapter & { calls: { method: string; args: unknown[] }[] };
+  let config: AuthConfig;
+  let subscriptionService: SubscriptionService;
+  let subscriptionConfig: SubscriptionConfig;
+
+  beforeEach(() => {
+    db = createMockDatabaseAdapterWithTier();
+    email = createMockEmailAdapter();
+    config = createTestConfig();
+    subscriptionConfig = createTestSubscriptionConfig();
+    subscriptionService = new SubscriptionService({
+      database: db,
+      payment: createMockPaymentAdapter(),
+      config: subscriptionConfig,
+    });
+  });
+
+  it('should set user tier to PRO when registering with plan=pro', async () => {
+    const authService = new AuthService({
+      auth: config,
+      database: db,
+      email,
+      subscriptionService,
+      subscriptionConfig: { trialDays: 14, defaultPlanId: 'pro' },
+    });
+
+    const result = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+      plan: 'pro',
+    });
+
+    expect(result.user.tier).toBe('PRO');
+  });
+
+  it('should create trial subscription when registering with plan=pro', async () => {
+    const authService = new AuthService({
+      auth: config,
+      database: db,
+      email,
+      subscriptionService,
+      subscriptionConfig: { trialDays: 14, defaultPlanId: 'pro' },
+    });
+
+    const result = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+      plan: 'pro',
+    });
+
+    const subscription = await db.getSubscriptionByUserId(result.user.id);
+    expect(subscription).not.toBeNull();
+    expect(subscription?.status).toBe('trialing');
+    expect(subscription?.planId).toBe('pro');
+  });
+
+  it('should create 14-day trial when registering with plan=pro', async () => {
+    const authService = new AuthService({
+      auth: config,
+      database: db,
+      email,
+      subscriptionService,
+      subscriptionConfig: { trialDays: 14, defaultPlanId: 'pro' },
+    });
+
+    const beforeRegister = Date.now();
+    const result = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+      plan: 'pro',
+    });
+
+    const subscription = await db.getSubscriptionByUserId(result.user.id);
+    expect(subscription?.trialEndDate).toBeDefined();
+
+    const trialEndTime = subscription!.trialEndDate!.getTime();
+    const expectedEndTime = beforeRegister + 14 * 24 * 60 * 60 * 1000;
+
+    // Allow 1 second tolerance for test execution time
+    expect(trialEndTime).toBeGreaterThanOrEqual(expectedEndTime - 1000);
+    expect(trialEndTime).toBeLessThanOrEqual(expectedEndTime + 1000);
+  });
+
+  it('should register without trial when no plan is specified', async () => {
+    const authService = new AuthService({
+      auth: config,
+      database: db,
+      email,
+      subscriptionService,
+      subscriptionConfig: { trialDays: 14, defaultPlanId: 'pro' },
+    });
+
+    const result = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+    });
+
+    expect(result.user.tier).toBeUndefined();
+    const subscription = await db.getSubscriptionByUserId(result.user.id);
+    expect(subscription).toBeNull();
+  });
+
+  it('should ignore invalid plan values', async () => {
+    const authService = new AuthService({
+      auth: config,
+      database: db,
+      email,
+      subscriptionService,
+      subscriptionConfig: { trialDays: 14, defaultPlanId: 'pro' },
+    });
+
+    const result = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+      plan: 'invalid-plan',
+    });
+
+    // Should still register successfully
+    expect(result.user.email).toBe('test@example.com');
+    // But no tier or subscription
+    expect(result.user.tier).toBeUndefined();
+    const subscription = await db.getSubscriptionByUserId(result.user.id);
+    expect(subscription).toBeNull();
+  });
+
+  it('should handle plan parameter case-insensitively', async () => {
+    const authService = new AuthService({
+      auth: config,
+      database: db,
+      email,
+      subscriptionService,
+      subscriptionConfig: { trialDays: 14, defaultPlanId: 'pro' },
+    });
+
+    const result = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+      plan: 'PRO', // uppercase
+    });
+
+    expect(result.user.tier).toBe('PRO');
+    const subscription = await db.getSubscriptionByUserId(result.user.id);
+    expect(subscription).not.toBeNull();
+    expect(subscription?.status).toBe('trialing');
+  });
+
+  it('should continue registration even if trial creation fails', async () => {
+    // Create a subscription service that always fails
+    const failingSubscriptionService = {
+      createTrialSubscription: vi.fn().mockRejectedValue(new Error('Trial creation failed')),
+    } as unknown as SubscriptionService;
+
+    const authService = new AuthService({
+      auth: config,
+      database: db,
+      email,
+      subscriptionService: failingSubscriptionService,
+      subscriptionConfig: { trialDays: 14, defaultPlanId: 'pro' },
+    });
+
+    // Should not throw, registration should succeed
+    const result = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+      plan: 'pro',
+    });
+
+    expect(result.user.email).toBe('test@example.com');
+    expect(result.tokens.accessToken).toBeDefined();
+  });
+
+  it('should include PRO tier in JWT when registering with plan=pro', async () => {
+    const authService = new AuthService({
+      auth: config,
+      database: db,
+      email,
+      subscriptionService,
+      subscriptionConfig: { trialDays: 14, defaultPlanId: 'pro' },
+    });
+
+    const result = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+      plan: 'pro',
+    });
+
+    const decoded = JSON.parse(
+      Buffer.from(result.tokens.accessToken.split('.')[1], 'base64').toString()
+    );
+
+    expect(decoded.tier).toBe('PRO');
+  });
+
+  it('should work without subscriptionService configured (backward compatibility)', async () => {
+    const authService = new AuthService({
+      auth: config,
+      database: db,
+      email,
+      // No subscriptionService
+    });
+
+    const result = await authService.register({
+      email: 'test@example.com',
+      password: 'securePassword123',
+      plan: 'pro', // plan provided but no service to handle it
+    });
+
+    // Should register normally without trial
+    expect(result.user.email).toBe('test@example.com');
+    expect(result.user.tier).toBeUndefined();
+  });
+});

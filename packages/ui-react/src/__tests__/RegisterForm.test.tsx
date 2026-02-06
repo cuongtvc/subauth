@@ -280,3 +280,136 @@ describe('RegisterForm', () => {
     expect(button).not.toBeDisabled();
   });
 });
+
+// ============================================
+// URL PLAN DETECTION TESTS
+// ============================================
+
+describe('RegisterForm - URL Plan Detection', () => {
+  const originalLocation = window.location;
+
+  beforeEach(() => {
+    // Mock window.location.search
+    delete (window as { location?: Location }).location;
+    window.location = { ...originalLocation, search: '' };
+  });
+
+  afterEach(() => {
+    window.location = originalLocation;
+  });
+
+  it('should automatically read plan from URL when plan prop is not provided', async () => {
+    window.location.search = '?plan=pro';
+
+    const mockRegisterResult: RegisterResult = {
+      message: 'Registration successful.',
+      requiresEmailVerification: true,
+    };
+    const mockRegister = vi.fn().mockResolvedValue(mockRegisterResult);
+    const mockAuthClient = {
+      register: mockRegister,
+      getState: vi.fn().mockReturnValue({ isLoading: false }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<RegisterForm authClient={mockAuthClient} />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'Password123');
+    await user.type(screen.getByLabelText(/confirm password/i), 'Password123');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    await waitFor(() => {
+      expect(mockRegister).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: 'Password123',
+        plan: 'pro',
+      });
+    });
+  });
+
+  it('should use plan prop when explicitly provided (override URL)', async () => {
+    window.location.search = '?plan=pro';
+
+    const mockRegisterResult: RegisterResult = {
+      message: 'Registration successful.',
+      requiresEmailVerification: true,
+    };
+    const mockRegister = vi.fn().mockResolvedValue(mockRegisterResult);
+    const mockAuthClient = {
+      register: mockRegister,
+      getState: vi.fn().mockReturnValue({ isLoading: false }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<RegisterForm authClient={mockAuthClient} plan="team" />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'Password123');
+    await user.type(screen.getByLabelText(/confirm password/i), 'Password123');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    await waitFor(() => {
+      expect(mockRegister).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: 'Password123',
+        plan: 'team',
+      });
+    });
+  });
+
+  it('should pass plan from URL to onSubmit callback', async () => {
+    window.location.search = '?plan=pro';
+
+    const onSubmit = vi.fn();
+    render(<RegisterForm onSubmit={onSubmit} />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'Password123');
+    await user.type(screen.getByLabelText(/confirm password/i), 'Password123');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: 'Password123',
+        name: undefined,
+        plan: 'pro',
+      });
+    });
+  });
+
+  it('should not include plan when URL has no plan parameter', async () => {
+    window.location.search = '';
+
+    const mockRegisterResult: RegisterResult = {
+      message: 'Registration successful.',
+      requiresEmailVerification: true,
+    };
+    const mockRegister = vi.fn().mockResolvedValue(mockRegisterResult);
+    const mockAuthClient = {
+      register: mockRegister,
+      getState: vi.fn().mockReturnValue({ isLoading: false }),
+      subscribe: vi.fn().mockReturnValue(() => {}),
+    } as unknown as AuthClient;
+
+    render(<RegisterForm authClient={mockAuthClient} />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'Password123');
+    await user.type(screen.getByLabelText(/confirm password/i), 'Password123');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    await waitFor(() => {
+      expect(mockRegister).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: 'Password123',
+        plan: undefined,
+      });
+    });
+  });
+});

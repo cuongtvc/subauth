@@ -15,6 +15,7 @@ import {
   type PasswordResetRequestInput,
   type PasswordResetInput,
 } from '@subauth/core';
+import type { SubscriptionService } from './subscription-service';
 
 export interface AuthServiceConfig {
   auth: AuthConfig;
@@ -27,6 +28,20 @@ export interface AuthServiceConfig {
    * Custom claims cannot override the 'userId' claim.
    */
   getCustomClaims?: (userId: string) => Promise<Record<string, unknown>>;
+  /**
+   * Optional subscription service for trial creation during registration.
+   * If provided along with subscriptionConfig, users can register with plan=pro
+   * to automatically receive a trial subscription.
+   */
+  subscriptionService?: SubscriptionService;
+  /**
+   * Configuration for trial subscriptions during registration.
+   * Required when subscriptionService is provided.
+   */
+  subscriptionConfig?: {
+    trialDays: number;
+    defaultPlanId: string;
+  };
 }
 
 export interface TokenValidationResult {
@@ -43,6 +58,8 @@ export class AuthService {
   private emailAdapter: EmailAdapter;
   private requireEmailVerification: boolean;
   private getCustomClaims?: (userId: string) => Promise<Record<string, unknown>>;
+  private subscriptionService?: SubscriptionService;
+  private subscriptionConfig?: { trialDays: number; defaultPlanId: string };
 
   constructor(serviceConfig: AuthServiceConfig) {
     this.config = serviceConfig.auth;
@@ -50,6 +67,8 @@ export class AuthService {
     this.emailAdapter = serviceConfig.email;
     this.requireEmailVerification = serviceConfig.requireEmailVerification ?? false;
     this.getCustomClaims = serviceConfig.getCustomClaims;
+    this.subscriptionService = serviceConfig.subscriptionService;
+    this.subscriptionConfig = serviceConfig.subscriptionConfig;
   }
 
   async register(input: RegisterInput): Promise<{ user: User; tokens: AuthTokens }> {
@@ -80,7 +99,23 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
 
     // Create user
-    const user = await this.db.createUser(email, passwordHash);
+    let user = await this.db.createUser(email, passwordHash);
+
+    // Handle pro trial registration
+    const plan = input.plan?.toLowerCase().trim();
+    if (plan === 'pro' && this.subscriptionService && this.subscriptionConfig) {
+      try {
+        await this.subscriptionService.createTrialSubscription(
+          user.id,
+          this.subscriptionConfig.defaultPlanId
+        );
+        // Update user tier to PRO
+        user = await this.db.updateUser(user.id, { tier: 'PRO' });
+      } catch (error) {
+        // Log but don't fail registration if trial creation fails
+        console.error('Failed to create trial subscription:', error);
+      }
+    }
 
     // Generate and store verification token
     const verificationToken = this.generateToken();

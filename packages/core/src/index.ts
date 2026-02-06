@@ -46,6 +46,8 @@ export interface AuthTokenPayload {
 export interface RegisterInput {
   email: string;
   password: string;
+  /** Optional plan for trial registration (e.g., 'pro') */
+  plan?: string;
 }
 
 export interface LoginInput {

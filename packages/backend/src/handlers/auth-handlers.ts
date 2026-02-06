@@ -28,7 +28,11 @@ export function createAuthHandlers(config: AuthHandlersConfig) {
   return {
     async register(request: AuthRequest): Promise<AuthResponse> {
       try {
-        const { email, password } = request.body as { email?: string; password?: string };
+        const { email, password, plan } = request.body as {
+          email?: string;
+          password?: string;
+          plan?: string;
+        };
 
         if (!email || !password) {
           return {
@@ -37,7 +41,7 @@ export function createAuthHandlers(config: AuthHandlersConfig) {
           };
         }
 
-        const result = await authService.register({ email, password });
+        const result = await authService.register({ email, password, plan });
 
         return {
           status: 201,
