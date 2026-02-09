@@ -217,7 +217,7 @@ export class AuthService {
     await this.db.setPasswordResetToken(user.id, resetToken, resetExpiry);
 
     // Send reset email
-    const resetUrl = `${this.config.baseUrl}/reset-password/${resetToken}`;
+    const resetUrl = `${this.config.baseUrl}/reset-password?token=${resetToken}`;
     await this.emailAdapter.sendPasswordResetEmail(email, resetToken, resetUrl);
   }
 
